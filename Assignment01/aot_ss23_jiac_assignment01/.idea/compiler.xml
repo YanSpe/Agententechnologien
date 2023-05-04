@@ -6,6 +6,7 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="aot_ss23_jiac_assignment01" />
         <module name="jiacvi-gridworld" />
       </profile>
     </annotationProcessing>
