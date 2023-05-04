@@ -9,7 +9,8 @@ import de.dailab.jiacvi.behaviour.act
  * */
 class AntAgent(antId: String): Agent(overrideName=antId) {
     // TODO you might need to put some variables to save stuff here
-    val position = null;
+    var position: Position? = null
+    var holdingFood: Boolean = false
 
 
 
@@ -20,6 +21,9 @@ class AntAgent(antId: String): Agent(overrideName=antId) {
         *   - build your ant algorithm by communicating with your environment when looking for the way
         *   - adjust your parameters to get better results
         */
-        
+
+        on {    message: EnvironmentSetUpAntMessage ->
+            position = message.position
+        }
     }
 }

@@ -11,9 +11,12 @@ import de.dailab.jiacvi.behaviour.act
 class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
     // TODO you might need to put some variables to save stuff here
 
-    private val numberOfAnts = 1
-    val antList = ArrayList<AntAgent>()
+    private val numberOfAnts: Int = 3
+    private val antAgentsId: ArrayList<String> = ArrayList()
 
+    private lateinit var size: Position
+    private lateinit var nestPosition: Position
+    private var obstacles: ArrayList<Position>? = null
 
 
     override fun preStart() {
@@ -32,17 +35,26 @@ class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
         */
         system.resolve("server") tell StartGameMessage(envId, intialize())
 
+        on { message: StartGameResponse ->
+            size = message.size
+            nestPosition = message.nestPosition
+            obstacles = message.obstacles as ArrayList<Position>?
+
+            for (ant in antAgentsId) {
+                system.resolve(ant) tell EnvironmentSetUpAntMessage(nestPosition)
+            }
+
+        }
 
     }
 
     private fun intialize(): List<String> {
         var antNumber = 0
-        val antIDs = ArrayList<String>()
         while (antNumber < numberOfAnts) {
-            antList.add(AntAgent(antNumber.toString()))
-            antIDs.add(antNumber.toString())
+            system.spawnAgent(AntAgent(antNumber.toString()),null,antNumber.toString())
+            antAgentsId.add(antNumber.toString())
             antNumber++
         }
-        return antIDs
+        return antAgentsId
     }
 }

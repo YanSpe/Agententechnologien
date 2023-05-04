@@ -23,3 +23,5 @@ data class EndGameMessage(val foodCollected: Int, val totalFood: Int, val score:
 data class AntActionRequest(val antId: String, val action: AntAction)
 /** flags: see Model.kt comments; state=true, flag=HAS_FOOD after move request means new position holds food source*/
 data class AntActionResponse(val state: Boolean, val flag: ActionFlag = ActionFlag.NONE)
+
+data class EnvironmentSetUpAntMessage(val position: Position)
