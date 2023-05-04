@@ -1,5 +1,6 @@
 package de.dailab.jiacvi.aot.gridworld
 
+import de.dailab.jiacvi.aot.gridworld.myAgents.AntAgent
 import de.dailab.jiacvi.aot.gridworld.myAgents.EnvironmentAgent
 import de.dailab.jiacvi.communication.LocalBroker
 import de.dailab.jiacvi.dsl.agentSystem
@@ -13,7 +14,7 @@ fun main() {
         enable(LocalBroker)
         agents {
             // you can set logGames=true, logFile="logs/<name>.log" here
-            add(ServerAgent(gridfile))
+            add(ServerAgent(gridfile, logGames = true))
 
             // this is your Agent but don't change the ID
             add(EnvironmentAgent("env"))

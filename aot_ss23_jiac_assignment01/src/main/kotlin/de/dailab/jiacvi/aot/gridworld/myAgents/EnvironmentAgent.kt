@@ -11,7 +11,8 @@ import de.dailab.jiacvi.behaviour.act
 class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
     // TODO you might need to put some variables to save stuff here
 
-
+    private val numberOfAnts = 1
+    val antList = ArrayList<AntAgent>()
 
 
 
@@ -29,5 +30,19 @@ class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
         *   - REMEMBER: pheromones should transpire, so old routes get lost
         *   - adjust your parameters to get better results, i.e. amount of ants (capped at 40)
         */
+        system.resolve("server") tell StartGameMessage(envId, intialize())
+
+
+    }
+
+    private fun intialize(): List<String> {
+        var antNumber = 0
+        val antIDs = ArrayList<String>()
+        while (antNumber < numberOfAnts) {
+            antList.add(AntAgent(antNumber.toString()))
+            antIDs.add(antNumber.toString())
+            antNumber++
+        }
+        return antIDs
     }
 }
