@@ -24,4 +24,7 @@ data class AntActionRequest(val antId: String, val action: AntAction)
 /** flags: see Model.kt comments; state=true, flag=HAS_FOOD after move request means new position holds food source*/
 data class AntActionResponse(val state: Boolean, val flag: ActionFlag = ActionFlag.NONE)
 
+// custom messages
 data class EnvironmentSetUpAntMessage(val position: Position)
+data class AntTurnInformation(val turn: Int)
+data class PheromoneMessage(val position: Position, var boolNestPheromone: Boolean)

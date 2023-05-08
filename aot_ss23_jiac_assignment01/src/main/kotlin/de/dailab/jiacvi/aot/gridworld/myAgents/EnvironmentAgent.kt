@@ -17,6 +17,8 @@ class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
     private lateinit var size: Position
     private lateinit var nestPosition: Position
     private var obstacles: ArrayList<Position>? = null
+    private var nestPheromones: ArrayList<Position> = ArrayList()
+    private var foodPheromones: ArrayList<Position> = ArrayList()
 
 
     override fun preStart() {
@@ -43,6 +45,14 @@ class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
             for (ant in antAgentsId) {
                 system.resolve(ant) tell EnvironmentSetUpAntMessage(nestPosition)
             }
+
+        }
+
+        on { message: GameTurnInform ->
+            for (ant in antAgentsId) {
+                system.resolve(ant) tell AntTurnInformation(message.gameTurn)
+            }
+
 
         }
 
