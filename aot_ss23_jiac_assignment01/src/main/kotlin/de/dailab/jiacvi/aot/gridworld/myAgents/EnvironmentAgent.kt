@@ -17,8 +17,15 @@ class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
     private lateinit var size: Position
     private lateinit var nestPosition: Position
     private var obstacles: ArrayList<Position>? = null
-    private var nestPheromones: ArrayList<Position> = ArrayList()
-    private var foodPheromones: ArrayList<Position> = ArrayList()
+
+    //private val xNest: IntArray = intArrayOf(size.x)
+    //private val yNest: IntArray = intArrayOf(size.y)
+    //private val nestPheromones: Array<IntArray> = arrayOf(xNest, yNest)
+    var nestPheromones: Array<Array<Double>> = Array(1) {Array(1) {0.0} }
+    //private val xFood: IntArray = intArrayOf(size.x)
+    //private val yFood: IntArray = intArrayOf(size.y)
+    //private var foodPheromones: Array<IntArray> = arrayOf(xFood, yFood)
+    var foodPheromones: Array<Array<Double>> = Array(1) {Array(1) {0.0} }
 
 
     override fun preStart() {
@@ -42,18 +49,40 @@ class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
             nestPosition = message.nestPosition
             obstacles = message.obstacles as ArrayList<Position>?
 
+            nestPheromones = Array(size.x) {Array(size.y) {0.0} }
+            foodPheromones = Array(size.x) {Array(size.y) {0.0} }
             for (ant in antAgentsId) {
                 system.resolve(ant) tell EnvironmentSetUpAntMessage(nestPosition)
             }
-
         }
 
         on { message: GameTurnInform ->
+
+            updatePheromones(foodPheromones, 0.1)
+            updatePheromones(nestPheromones, 0.1)
+
             for (ant in antAgentsId) {
                 system.resolve(ant) tell AntTurnInformation(message.gameTurn)
             }
 
 
+        }
+        on {message: PheromoneMessage ->
+            if(message.boolNestPheromone){
+                nestPheromones[message.position.x][message.position.y] += message.amount
+            }
+            else
+            {
+                foodPheromones[message.position.x][message.position.y] += message.amount
+            }
+
+        }
+
+        respond<InspectPheromoneEnvironmentMessage, ReturnPheromoneEnvironmentMessage> { message ->
+            var possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.boolNestPheromone)
+
+
+            ReturnPheromoneEnvironmentMessage()
         }
 
     }
@@ -67,4 +96,27 @@ class EnvironmentAgent(private val envId: String): Agent(overrideName=envId) {
         }
         return antAgentsId
     }
+
+    private fun updatePheromones(a : Array<Array<Double>>, x : Double): Void? {
+        for (i in 0 until a.size) {
+            for (j in 0 until a[i].size) {
+                if(a[i][j] != 0.0) {
+                    a[i][j] -= x
+                }
+            }
+        }
+        return null
+    }
+
+    private fun getPossiblePositions(antPosition: Position, useNestPheromone: Boolean): ArrayList<Position>{
+        var map: Array<Array<Double>> = nestPheromones
+        if(!useNestPheromone) map = foodPheromones
+
+        var returnList: ArrayList<Position> = ArrayList()
+
+
+
+        return returnList
+    }
 }
+
