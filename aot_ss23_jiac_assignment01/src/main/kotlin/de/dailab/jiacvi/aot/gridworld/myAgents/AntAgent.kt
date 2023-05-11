@@ -37,13 +37,13 @@ class AntAgent(antId: String): Agent(overrideName=antId) {
             system.resolve("server") tell AntActionRequest(antId, AntAction.TAKE)
         }
         else{
-            var positionList: ArrayList<Position> = ArrayList()
+            val positionList: ArrayList<Position> = ArrayList()
             positionList.add(pos0)
             positionList.add(pos1)
             positionList.add(pos2)
-            var move: Position = positionList.shuffled().first()
+            val move: Position = positionList.shuffled().first()
 
-            var action:AntAction = convertPositionToAction(position, move)
+            val action:AntAction = convertPositionToAction(position, move)
             lastAction = action
 
             system.resolve("server") tell AntActionRequest(antId, action)
@@ -90,18 +90,28 @@ class AntAgent(antId: String): Agent(overrideName=antId) {
         }
 
         on { message: AntTurnInformation ->
+            log.info("AntturnInfo: " + message.turn)
             if (holdingFood) {
-                system.resolve("env1") tell InspectPheromoneEnvironmentMessage(position, false)
+                system.resolve("env") tell InspectPheromoneEnvironmentMessage(position, false)
             } else {
-                system.resolve("env1") tell InspectPheromoneEnvironmentMessage(position, true)
+                system.resolve("env") tell InspectPheromoneEnvironmentMessage(position, true)
             }
         }
 
         on { message: ReturnPheromoneEnvironmentMessage ->
+            log.info("ReturnPheromone: " + message.p0)
+            pos0 = message.p0
+            pos1 = message.p1
+            pos2 = message.p2
             doAction()
         }
 
+        on {message: EndGameMessage ->
+            system.terminate()
+        }
+
         on { message: AntActionResponse ->
+            log.info("AntActionResponse: " + message.state)
             if(message.state){
                 if (lastAction == AntAction.TAKE) {
                     holdingFood = true
@@ -113,13 +123,12 @@ class AntAgent(antId: String): Agent(overrideName=antId) {
                     amount = 1.0
                 }
 
-                system.resolve("Env1") tell PheromoneMessage(position, !holdingFood, amount)
+                system.resolve("env") tell PheromoneMessage(position, !holdingFood, amount)
                 if (amount >= 0.05) {
                     amount -= 0.05
                 }
 
             }
-
 
             when (message.flag){
                 ActionFlag.NO_ACTIVE_GAME -> println("Error")  // ant is not registered or no game started
@@ -134,10 +143,5 @@ class AntAgent(antId: String): Agent(overrideName=antId) {
             }
 
         }
-
-
-
-
-
     }
 }
