@@ -1,6 +1,5 @@
 package de.dailab.jiacvi.aot.gridworld
 
-import de.dailab.jiacvi.aot.gridworld.myAgents.AntAgent
 import de.dailab.jiacvi.aot.gridworld.myAgents.EnvironmentAgent
 import de.dailab.jiacvi.communication.LocalBroker
 import de.dailab.jiacvi.dsl.agentSystem
@@ -8,7 +7,7 @@ import de.dailab.jiacvi.dsl.agentSystem
 fun main() {
 
     // you can create own grids and change the file here. Be sure to test with our grid as well.
-    val gridfile = "/grids/benchmark.grid"
+    val gridfile = "/grids/test.grid"
 
     agentSystem("Gridworld") {
         enable(LocalBroker)

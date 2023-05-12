@@ -27,6 +27,6 @@ data class AntActionResponse(val state: Boolean, val flag: ActionFlag = ActionFl
 // custom messages
 data class EnvironmentSetUpAntMessage(val position: Position)
 data class AntTurnInformation(val turn: Int)
-data class PheromoneMessage(val position: Position, var boolNestPheromone: Boolean, var amount: Double)
-data class InspectPheromoneEnvironmentMessage(val position: Position, var boolNestPheromone: Boolean, var antID: String)
+data class PheromoneMessage(val position: Position, var useNestPheromone: Boolean, var amount: Double)
+data class InspectPheromoneEnvironmentMessage(val position: Position, var useNestPheromone: Boolean, var antID: String)
 data class ReturnPheromoneEnvironmentMessage(val p0: Position, val p1: Position, val p2: Position)

@@ -11,7 +11,7 @@ import de.dailab.jiacvi.behaviour.act
 class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) {
     // TODO you might need to put some variables to save stuff here
 
-    private val numberOfAnts: Int = 2
+    private val numberOfAnts: Int = 1
     private val antAgentsId: ArrayList<String> = ArrayList()
 
     private var size: Position = Position(1, 1)
@@ -56,24 +56,6 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         *   - REMEMBER: pheromones should transpire, so old routes get lost
         *   - adjust your parameters to get better results, i.e. amount of ants (capped at 40)
         */
-        //system.resolve("server") tell StartGameMessage(envId, intialize())
-
-
-        /*
-        on { message: StartGameResponse ->
-            size = message.size
-            nestPosition = message.nestPosition
-            obstacles = message.obstacles as ArrayList<Position>?
-
-            nestPheromones = Array(size.x) { Array(size.y) { 0.0 } }
-            foodPheromones = Array(size.x) { Array(size.y) { 0.0 } }
-            for (ant in antAgentsId) {
-                system.resolve(ant) tell EnvironmentSetUpAntMessage(nestPosition)
-            }
-        }
-
-         */
-
         listen(BROADCAST_TOPIC) { message: GameTurnInform ->
             //log.info("GameTurnInfo-Env: " + message.gameTurn)
             updatePheromones(foodPheromones, 0.1)
@@ -86,7 +68,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         }
         on { message: PheromoneMessage ->
             log.info("PheromoneMessage-Env: " + message.position)
-            if (message.boolNestPheromone) {
+            if (message.useNestPheromone) {
                 nestPheromones[message.position.x][message.position.y] += message.amount
             } else {
                 foodPheromones[message.position.x][message.position.y] += message.amount
@@ -95,8 +77,8 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         }
 
         on { message: InspectPheromoneEnvironmentMessage ->
-            log.info("Ameise " + message.antID + " fragt nach Pheromonen an Stelle " + message.position)
-            val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.boolNestPheromone)
+            log.info("Ameise " + message.antID + " fragt nach Pheromonen an Stelle " + message.position + " mit useNestPheromon: " + message.useNestPheromone)
+            val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.useNestPheromone)
 
             system.resolve(message.antID) tell ReturnPheromoneEnvironmentMessage(
                 possiblePos.get(0),
@@ -104,16 +86,6 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
                 possiblePos.get(2)
             )
         }
-
-        /*
-        respond<InspectPheromoneEnvironmentMessage, ReturnPheromoneEnvironmentMessage> { message ->
-            log.info("InspectPheromoneMessage-Env: " + message.position)
-            val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.boolNestPheromone)
-
-            ReturnPheromoneEnvironmentMessage(possiblePos.get(0), possiblePos.get(1), possiblePos.get(2))
-        }
-
-         */
 
         on { message: EndGameMessage ->
             system.terminate()
@@ -144,7 +116,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
     private fun getPossiblePositions(antPosition: Position, useNestPheromone: Boolean): ArrayList<Position> {
         // TODO: Logik einbauen die Pheromonen folgt und wenn keine Pheromone da sind random läuft
-        var positionList: ArrayList<Position> = ArrayList()
+        val positionList: ArrayList<Position> = ArrayList()
 
         if (antPosition.x + 1 < size.x) {
             positionList.add(Position(antPosition.x + 1, antPosition.y))
@@ -174,7 +146,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             sortedList = sortedList.shuffled()
         }
 
-        var x: ArrayList<Position> = ArrayList()
+        val x: ArrayList<Position> = ArrayList()
         x.add(sortedList[0].position)
         x.add(sortedList[1].position)
         x.add(sortedList[2].position)
