@@ -11,7 +11,7 @@ import de.dailab.jiacvi.behaviour.act
 class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) {
     // TODO you might need to put some variables to save stuff here
 
-    private val numberOfAnts: Int = 10
+    private val numberOfAnts: Int = 2
     private val antAgentsId: ArrayList<String> = ArrayList()
 
     private var size: Position = Position(1,1)
@@ -75,7 +75,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
          */
 
         listen(BROADCAST_TOPIC) { message: GameTurnInform ->
-            log.info("GameTurnInfo-Env: " + message.gameTurn)
+            //log.info("GameTurnInfo-Env: " + message.gameTurn)
             updatePheromones(foodPheromones, 0.1)
             updatePheromones(nestPheromones, 0.1)
 
@@ -94,12 +94,22 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
         }
 
+        on { message: InspectPheromoneEnvironmentMessage ->
+            log.info("Ameise "+ message.antID + " fragt nach Pheromonen an Stelle " + message.position)
+            val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.boolNestPheromone)
+
+            system.resolve(message.antID) tell ReturnPheromoneEnvironmentMessage(possiblePos.get(0), possiblePos.get(1), possiblePos.get(2))
+        }
+
+        /*
         respond<InspectPheromoneEnvironmentMessage, ReturnPheromoneEnvironmentMessage> { message ->
             log.info("InspectPheromoneMessage-Env: " + message.position)
             val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.boolNestPheromone)
 
             ReturnPheromoneEnvironmentMessage(possiblePos.get(0), possiblePos.get(1), possiblePos.get(2))
         }
+
+         */
 
         on {message: EndGameMessage ->
             system.terminate()
