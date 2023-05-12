@@ -14,8 +14,8 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
     private val numberOfAnts: Int = 2
     private val antAgentsId: ArrayList<String> = ArrayList()
 
-    private var size: Position = Position(1,1)
-    private var nestPosition: Position = Position(1,1 )
+    private var size: Position = Position(1, 1)
+    private var nestPosition: Position = Position(1, 1)
     private var obstacles: ArrayList<Position>? = null
 
     //private val xNest: IntArray = intArrayOf(size.x)
@@ -31,8 +31,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
     override fun preStart() {
         super.preStart()
-        system.resolve("server") invoke ask<StartGameResponse>(StartGameMessage(envId, intialize())){
-            message ->
+        system.resolve("server") invoke ask<StartGameResponse>(StartGameMessage(envId, intialize())) { message ->
             size = message.size
             nestPosition = message.nestPosition
             obstacles = message.obstacles as ArrayList<Position>?
@@ -42,11 +41,12 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             for (ant in antAgentsId) {
                 system.resolve(ant) tell EnvironmentSetUpAntMessage(nestPosition)
             }
-        }.error{
+        }.error {
             println("error")
         }
 
     }
+
     override fun behaviour() = act {
         /* TODO here belongs most of your agents logic.
         *   - Check the readme "Reactive Behaviour" part and see the Server for some examples
@@ -95,10 +95,14 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         }
 
         on { message: InspectPheromoneEnvironmentMessage ->
-            log.info("Ameise "+ message.antID + " fragt nach Pheromonen an Stelle " + message.position)
+            log.info("Ameise " + message.antID + " fragt nach Pheromonen an Stelle " + message.position)
             val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.boolNestPheromone)
 
-            system.resolve(message.antID) tell ReturnPheromoneEnvironmentMessage(possiblePos.get(0), possiblePos.get(1), possiblePos.get(2))
+            system.resolve(message.antID) tell ReturnPheromoneEnvironmentMessage(
+                possiblePos.get(0),
+                possiblePos.get(1),
+                possiblePos.get(2)
+            )
         }
 
         /*
@@ -111,7 +115,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
          */
 
-        on {message: EndGameMessage ->
+        on { message: EndGameMessage ->
             system.terminate()
         }
 
@@ -156,30 +160,26 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         if (antPosition.y + 1 <= size.y) positionList.add(Position(antPosition.x, antPosition.y + 1))
         if (antPosition.y - 1 >= 0) positionList.add(Position(antPosition.x, antPosition.y - 1))
 
-        var sortedList: ArrayList<Position> = ArrayList()
-        for (position: Position in positionList) {
-            if (sortedList.size == 0) sortedList.add(position)
-            else {
-                for (sortPos: Position in sortedList) {
-                    if (comparePosition(sortPos, position, useNestPheromone) >= 0){
-                        sortedList.add(position)
-                        break
-                    }
-                }
-            }
-
+        val sortPosList: ArrayList<SortPos> = ArrayList()
+        for (positionToSort: Position in positionList) {
+            sortPosList.add(SortPos(positionToSort, getMapValForPosition(positionToSort, useNestPheromone)))
         }
-        //sortedList = sortedList.shuffled()
-        //var actionList: MutableList<Position> = sortedList
-        //actionList.shuffled()
+
+        var sortedList = sortPosList.sortedBy { sortPos -> sortPos.value }
+        var isAllZero = true
+        for (sorted: SortPos in sortedList){
+            if (sorted.value != 0.0) isAllZero=false
+        }
+        if(isAllZero) {
+            sortedList = sortedList.shuffled()
+        }
 
         var x: ArrayList<Position> = ArrayList()
-        x.add(sortedList[0])
-        x.add(sortedList[1])
-        x.add(sortedList[2])
+        x.add(sortedList[0].position)
+        x.add(sortedList[1].position)
+        x.add(sortedList[2].position)
 
         return x
-        //return sortedList.subList(0,2) as ArrayList<Position>
     }
 
     private fun getMapValForPosition(position: Position, useNestPheromone: Boolean): Double {
@@ -188,9 +188,10 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         return map[position.x][position.y]
 
     }
-
-    private fun comparePosition(position1: Position, position2: Position, useNestPheromone: Boolean): Double {
-        return getMapValForPosition(position2, useNestPheromone) - getMapValForPosition(position1, useNestPheromone)
-    }
 }
+
+data class SortPos(
+    val position: Position,
+    val value: Double
+)
 
