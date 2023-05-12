@@ -28,62 +28,64 @@ class AntAgent(antId: String): Agent(overrideName=antId) {
         positionList.add(pos1)
         positionList.add(pos2)
         val move: Position = positionList.shuffled().first()
-        var action:AntAction
+        var action:AntAction? = null
 
         if(holdingFood && position == nestPosition){
-            lastAction = AntAction.DROP
+            log.info("Ich bin Ameise " + antId + "und wähle DROP Position: "+ position+" nestPosition: "+ nestPosition)
             action = AntAction.DROP
-            //system.resolve("server") tell AntActionRequest(antId, AntAction.DROP)
         }
         else if (!holdingFood && atFood){
-            lastAction = AntAction.TAKE
             action = AntAction.TAKE
-            //system.resolve("server") tell AntActionRequest(antId, AntAction.TAKE)
         }
-        else{
-
+        if (action == null){
             action = convertPositionToAction(position, move)
-            lastAction = action
-
-
-            log.info("Ich bin Ameise " + antId + " und wähle action " + action)
-            //system.resolve("server") tell AntActionRequest(antId, action)
-            system.resolve("server") invoke ask<AntActionResponse>(AntActionRequest(antId, action)){
-                message ->
-
-                log.info("AntActionResponse: " + message.state)
-                if(message.state){
-                    if (lastAction == AntAction.TAKE) {
-                        holdingFood = true
-                        amount = 1.0
-                    }
-
-                    if (lastAction == AntAction.DROP) {
-                        holdingFood = false
-                        amount = 1.0
-                    }
-
-                    system.resolve("env") tell PheromoneMessage(position, !holdingFood, amount)
-                    if (amount >= 0.05) {
-                        amount -= 0.05
-                    }
-
-                }
-
-                when (message.flag){
-                    ActionFlag.NO_ACTIVE_GAME -> println("Error")  // ant is not registered or no game started
-                    ActionFlag.MAX_ACTIONS -> println("too many actions")    // ants can only do 1 action per turn
-                    ActionFlag.OBSTACLE -> doAction()       // border of grid or obstacle (#) in grid
-                    ActionFlag.NO_FOOD -> println("no food")        // ant has no food to drop or is not at active food source to take
-                    ActionFlag.NO_NEST -> println("no nest")        // ant is not at nest while trying to drop
-                    ActionFlag.HAS_FOOD ->  {
-                        if (!holdingFood) atFood = true
-                    }   // new position is active food source or ant has food and can't take more
-                    ActionFlag.NONE -> println("none")
-                }
-
-            }
         }
+
+        lastAction = action
+
+        log.info("Ich bin Ameise " + antId + " und wähle action " + action)
+        //system.resolve("server") tell AntActionRequest(antId, action)
+        system.resolve("server") invoke ask<AntActionResponse>(AntActionRequest(antId, action)){
+            message ->
+
+            log.info("AntActionResponse für Ameise "+ antId+ ": " + message.state)
+            if(message.state){
+                if (lastAction == AntAction.TAKE) {
+                    holdingFood = true
+                    amount = 1.0
+                }
+
+                if (lastAction == AntAction.DROP) {
+                    holdingFood = false
+                    amount = 1.0
+                }
+
+                system.resolve("env") tell PheromoneMessage(position, !holdingFood, amount)
+                if (amount >= 0.05) {
+                    amount -= 0.05
+                }
+
+            } else if(message.flag != ActionFlag.MAX_ACTIONS && message.flag != ActionFlag.NO_ACTIVE_GAME){
+                doAction()
+            }
+
+            when (message.flag){
+                ActionFlag.NO_ACTIVE_GAME -> log.info("No Active Game")  // ant is not registered or no game started
+                ActionFlag.MAX_ACTIONS -> log.info("too many actions")    // ants can only do 1 action per turn
+                ActionFlag.OBSTACLE -> log.info("obstacle")       // border of grid or obstacle (#) in grid
+                ActionFlag.NO_FOOD -> log.info("no food")        // ant has no food to drop or is not at active food source to take
+                ActionFlag.NO_NEST -> log.info("no nest")        // ant is not at nest while trying to drop
+                ActionFlag.HAS_FOOD ->  {
+                    if (!holdingFood) {
+                        atFood = true
+                        log.info("Ich bin Ameise " + antId + " und ich bin an einer Food Source")
+                    }
+                }   // new position is active food source or ant has food and can't take more
+                ActionFlag.NONE -> log.info("none")
+            }
+
+        }
+
     }
 
     fun convertPositionToAction(p0: Position, p1: Position): AntAction{

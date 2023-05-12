@@ -139,9 +139,10 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
     }
 
     private fun getPossiblePositions(antPosition: Position, useNestPheromone: Boolean): ArrayList<Position> {
+        // TODO: Logik einbauen die Pheromonen folgt und wenn keine Pheromone da sind random läuft
         var positionList: ArrayList<Position> = ArrayList()
 
-        if (antPosition.x + 1 <= size.x) {
+        if (antPosition.x + 1 < size.x) {
             positionList.add(Position(antPosition.x + 1, antPosition.y))
             if (antPosition.y + 1 <= size.y) positionList.add(Position(antPosition.x + 1, antPosition.y + 1))
             if (antPosition.y - 1 >= 0) positionList.add(Position(antPosition.x + 1, antPosition.y - 1))
@@ -168,6 +169,9 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             }
 
         }
+        //sortedList = sortedList.shuffled()
+        //var actionList: MutableList<Position> = sortedList
+        //actionList.shuffled()
 
         var x: ArrayList<Position> = ArrayList()
         x.add(sortedList[0])
