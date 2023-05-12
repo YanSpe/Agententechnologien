@@ -11,11 +11,11 @@ import de.dailab.jiacvi.behaviour.act
 class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) {
     // TODO you might need to put some variables to save stuff here
 
-    private val numberOfAnts: Int = 1
+    private val numberOfAnts: Int = 2
     private val antAgentsId: ArrayList<String> = ArrayList()
 
-    private lateinit var size: Position
-    private lateinit var nestPosition: Position
+    private var size: Position = Position(1,1)
+    private var nestPosition: Position = Position(1,1 )
     private var obstacles: ArrayList<Position>? = null
 
     //private val xNest: IntArray = intArrayOf(size.x)
@@ -29,6 +29,24 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
     var foodPheromones: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
 
 
+    override fun preStart() {
+        super.preStart()
+        system.resolve("server") invoke ask<StartGameResponse>(StartGameMessage(envId, intialize())){
+            message ->
+            size = message.size
+            nestPosition = message.nestPosition
+            obstacles = message.obstacles as ArrayList<Position>?
+
+            nestPheromones = Array(size.x) { Array(size.y) { 0.0 } }
+            foodPheromones = Array(size.x) { Array(size.y) { 0.0 } }
+            for (ant in antAgentsId) {
+                system.resolve(ant) tell EnvironmentSetUpAntMessage(nestPosition)
+            }
+        }.error{
+            println("error")
+        }
+
+    }
     override fun behaviour() = act {
         /* TODO here belongs most of your agents logic.
         *   - Check the readme "Reactive Behaviour" part and see the Server for some examples
@@ -38,8 +56,10 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         *   - REMEMBER: pheromones should transpire, so old routes get lost
         *   - adjust your parameters to get better results, i.e. amount of ants (capped at 40)
         */
-        system.resolve("server") tell StartGameMessage(envId, intialize())
+        //system.resolve("server") tell StartGameMessage(envId, intialize())
 
+
+        /*
         on { message: StartGameResponse ->
             size = message.size
             nestPosition = message.nestPosition
@@ -52,8 +72,10 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             }
         }
 
+         */
+
         listen(BROADCAST_TOPIC) { message: GameTurnInform ->
-            log.info("GameTurnInfo-Env: " + message.gameTurn)
+            //log.info("GameTurnInfo-Env: " + message.gameTurn)
             updatePheromones(foodPheromones, 0.1)
             updatePheromones(nestPheromones, 0.1)
 
@@ -72,12 +94,22 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
         }
 
+        on { message: InspectPheromoneEnvironmentMessage ->
+            log.info("Ameise "+ message.antID + " fragt nach Pheromonen an Stelle " + message.position)
+            val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.boolNestPheromone)
+
+            system.resolve(message.antID) tell ReturnPheromoneEnvironmentMessage(possiblePos.get(0), possiblePos.get(1), possiblePos.get(2))
+        }
+
+        /*
         respond<InspectPheromoneEnvironmentMessage, ReturnPheromoneEnvironmentMessage> { message ->
             log.info("InspectPheromoneMessage-Env: " + message.position)
             val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.boolNestPheromone)
 
             ReturnPheromoneEnvironmentMessage(possiblePos.get(0), possiblePos.get(1), possiblePos.get(2))
         }
+
+         */
 
         on {message: EndGameMessage ->
             system.terminate()
@@ -137,7 +169,13 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
         }
 
-         return sortedList.subList(0,2) as ArrayList<Position>
+        var x: ArrayList<Position> = ArrayList()
+        x.add(sortedList[0])
+        x.add(sortedList[1])
+        x.add(sortedList[2])
+
+        return x
+        //return sortedList.subList(0,2) as ArrayList<Position>
     }
 
     private fun getMapValForPosition(position: Position, useNestPheromone: Boolean): Double {
