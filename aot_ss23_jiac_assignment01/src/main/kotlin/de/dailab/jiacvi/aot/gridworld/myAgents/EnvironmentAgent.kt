@@ -11,7 +11,7 @@ import de.dailab.jiacvi.behaviour.act
 class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) {
     // TODO you might need to put some variables to save stuff here
 
-    private val numberOfAnts: Int = 1
+    private val numberOfAnts: Int = 35
     private val antAgentsId: ArrayList<String> = ArrayList()
 
     private var size: Position = Position(1, 1)
@@ -57,7 +57,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         *   - adjust your parameters to get better results, i.e. amount of ants (capped at 40)
         */
         listen(BROADCAST_TOPIC) { message: GameTurnInform ->
-            //log.info("GameTurnInfo-Env: " + message.gameTurn)
+            log.info("GameTurnInfo-Env: " + message.gameTurn)
             updatePheromones(foodPheromones, 0.1)
             updatePheromones(nestPheromones, 0.1)
 
@@ -67,13 +67,14 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
         }
         on { message: PheromoneMessage ->
-            log.info("PheromoneMessage-Env: " + message.position)
+            log.info("Updated useNestPheromone: " + message.useNestPheromone + " at position " + message.position)
             if (message.useNestPheromone) {
                 nestPheromones[message.position.x][message.position.y] += message.amount
             } else {
                 foodPheromones[message.position.x][message.position.y] += message.amount
             }
-
+            log.info("Nestpheromones: " + printPheromones(nestPheromones))
+            log.info("Foodpheromones: " + printPheromones(foodPheromones))
         }
 
         on { message: InspectPheromoneEnvironmentMessage ->
@@ -103,7 +104,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         return antAgentsId
     }
 
-    private fun updatePheromones(a: Array<Array<Double>>, x: Double): Void? {
+    private fun updatePheromones(a: Array<Array<Double>>, x: Double) {
         for (i in 0 until a.size) {
             for (j in 0 until a[i].size) {
                 if (a[i][j] != 0.0) {
@@ -111,46 +112,73 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
                 }
             }
         }
-        return null
+        return
+    }
+
+    private fun printPheromones(a: Array<Array<Double>>): String {
+        var retString: String = ""
+        for (row in a) {
+            retString += "," + row.contentToString()
+        }
+        return retString
     }
 
     private fun getPossiblePositions(antPosition: Position, useNestPheromone: Boolean): ArrayList<Position> {
-        // TODO: Logik einbauen die Pheromonen folgt und wenn keine Pheromone da sind random läuft
         val positionList: ArrayList<Position> = ArrayList()
 
         if (antPosition.x + 1 < size.x) {
             positionList.add(Position(antPosition.x + 1, antPosition.y))
-            if (antPosition.y + 1 <= size.y) positionList.add(Position(antPosition.x + 1, antPosition.y + 1))
+            if (antPosition.y + 1 < size.y) positionList.add(Position(antPosition.x + 1, antPosition.y + 1))
             if (antPosition.y - 1 >= 0) positionList.add(Position(antPosition.x + 1, antPosition.y - 1))
         }
         if (antPosition.x - 1 >= 0) {
             positionList.add(Position(antPosition.x - 1, antPosition.y))
-            if (antPosition.y + 1 <= size.y) positionList.add(Position(antPosition.x - 1, antPosition.y + 1))
+            if (antPosition.y + 1 < size.y) positionList.add(Position(antPosition.x - 1, antPosition.y + 1))
             if (antPosition.y - 1 >= 0) positionList.add(Position(antPosition.x - 1, antPosition.y - 1))
         }
 
-        if (antPosition.y + 1 <= size.y) positionList.add(Position(antPosition.x, antPosition.y + 1))
+        if (antPosition.y + 1 < size.y) positionList.add(Position(antPosition.x, antPosition.y + 1))
         if (antPosition.y - 1 >= 0) positionList.add(Position(antPosition.x, antPosition.y - 1))
 
         val sortPosList: ArrayList<SortPos> = ArrayList()
         for (positionToSort: Position in positionList) {
             sortPosList.add(SortPos(positionToSort, getMapValForPosition(positionToSort, useNestPheromone)))
         }
-
+        log.info("print sortPosList: " + printValueList(sortPosList))
         var sortedList = sortPosList.sortedBy { sortPos -> sortPos.value }
-        var isAllZero = true
-        for (sorted: SortPos in sortedList){
-            if (sorted.value != 0.0) isAllZero=false
+        log.info("print sortedList: " + printValueList(sortedList))
+        var allZero = true
+        for (sorted: SortPos in sortedList) {
+            if (sorted.value != 0.0) allZero = false
         }
-        if(isAllZero) {
+        if (allZero) {
             sortedList = sortedList.shuffled()
         }
-
+        log.info("print sortedList: " + printValueList(sortedList))
         val x: ArrayList<Position> = ArrayList()
-        x.add(sortedList[0].position)
-        x.add(sortedList[1].position)
-        x.add(sortedList[2].position)
+        if (sortedList.size >= 3) {
+            log.info("The Best Position is " + sortedList[sortedList.size - 1].position + " with the value " + sortedList[sortedList.size - 1].value)
 
+            x.add(sortedList[sortedList.size - 1].position)
+            if (sortedList[sortedList.size - 2].value == 0.0 && sortedList[sortedList.size - 1].value != 0.0) {
+                x.add(sortedList[sortedList.size - 1].position)
+            } else {
+                x.add(sortedList[sortedList.size - 2].position)
+            }
+            x.add(sortedList[sortedList.size - 3].position)
+        } else {
+            // bei 0 möglichen Positionen schmiert das ganze ab --> weiß aber auch nicht, wie es dazu kommen sollte
+            val x: ArrayList<Position> = ArrayList()
+            for (element in sortedList) {
+                x.add(element.position)
+            }
+            for (i in 1..3) {
+                if (x.size == 3) break
+                else {
+                    x.add(x.get(x.lastIndex - 1))
+                }
+            }
+        }
         return x
     }
 
@@ -158,7 +186,14 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         var map: Array<Array<Double>> = nestPheromones
         if (!useNestPheromone) map = foodPheromones
         return map[position.x][position.y]
+    }
 
+    private fun printValueList(list: List<SortPos>): String {
+        var s = ""
+        for (elem in list) {
+            s += ", " + elem.value
+        }
+        return s
     }
 }
 
