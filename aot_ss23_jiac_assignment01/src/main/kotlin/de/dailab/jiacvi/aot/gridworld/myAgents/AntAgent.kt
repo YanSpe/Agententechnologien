@@ -22,8 +22,8 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
     var pos1: Position = Position(0, 0)
     var pos2: Position = Position(0, 0)
     var lastAction: AntAction = AntAction.NORTH
-    var usePos1: Double = 0.60
-    var usePos2: Double = 0.30
+    var usePos1: Double = 0.70
+    var usePos2: Double = 0.20
     var usePos3: Double = 0.10
 
     fun getMovePos(possiblePositions: ArrayList<Position>): Position {
@@ -43,7 +43,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
         var action: AntAction? = null
 
         if (holdingFood && position == nestPosition) {
-            log.info("Ich bin Ameise " + antId + "und wähle DROP Position: " + position + " nestPosition: " + nestPosition)
+            //log.info("Ich bin Ameise " + antId + "und wähle DROP Position: " + position + " nestPosition: " + nestPosition)
             action = AntAction.DROP
         } else if (!holdingFood && atFood) {
             action = AntAction.TAKE
@@ -56,7 +56,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
 
         lastAction = action
 
-        log.info("Ich bin Ameise " + antId + " und wähle action " + action)
+        //log.info("Ich bin Ameise " + antId + " und wähle action " + action)
         system.resolve("server") invoke ask<AntActionResponse>(AntActionRequest(antId, action)) { message ->
 
             log.info("AntActionResponse für Ameise " + antId + ": " + message.state + ", with flag: " + message.flag)
@@ -74,15 +74,18 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
                 }
 
                 system.resolve("env") tell PheromoneMessage(position, !holdingFood, amount)
-                if (amount >= 0.05) {
-                    amount -= 0.05
+                if (amount >= 0.08) {
+                    amount -= 0.08
+                }
+                if (amount < 0.0){
+                    amount = 0.0
                 }
 
                 if (lastAction != AntAction.TAKE && lastAction != AntAction.DROP) {
                     position = nextPosition
                 }
 
-                log.info("New position for ant " + antId + ": " + position)
+                //log.info("New position for ant " + antId + ": " + position)
             } else if (message.flag != ActionFlag.MAX_ACTIONS && message.flag != ActionFlag.NO_ACTIVE_GAME) {
                 //doAction()
 
@@ -92,15 +95,15 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
                 ActionFlag.NO_ACTIVE_GAME -> log.info("No Active Game")  // ant is not registered or no game started
                 ActionFlag.MAX_ACTIONS -> log.info("too many actions")    // ants can only do 1 action per turn
                 ActionFlag.OBSTACLE -> doAction()       // border of grid or obstacle (#) in grid
-                ActionFlag.NO_FOOD -> log.info("no food")        // ant has no food to drop or is not at active food source to take
-                ActionFlag.NO_NEST -> log.info("no nest")        // ant is not at nest while trying to drop
+                //ActionFlag.NO_FOOD -> log.info("no food")        // ant has no food to drop or is not at active food source to take
+                //ActionFlag.NO_NEST -> log.info("no nest")        // ant is not at nest while trying to drop
                 ActionFlag.HAS_FOOD -> {
                     if (!holdingFood) {
                         atFood = true
                         log.info("Ich bin Ameise " + antId + " und ich bin an einer Food Source")
                     }
                 }   // new position is active food source or ant has food and can't take more
-                ActionFlag.NONE -> log.info("none")
+                //ActionFlag.NONE -> log.info("none")
             }
 
         }
@@ -144,11 +147,11 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
         on { message: EnvironmentSetUpAntMessage ->
             position = message.position
             nestPosition = message.position
-            log.info("EnvironmentSetUpAntMessage: Ich bin Ameise " + antId + " und bin an Postion: " + position)
+            //log.info("EnvironmentSetUpAntMessage: Ich bin Ameise " + antId + " und bin an Postion: " + position)
         }
 
         on { message: AntTurnInformation ->
-            log.info("AntturnInfo: " + message.turn)
+            //log.info("AntturnInfo: " + message.turn)
             if (holdingFood) {
                 system.resolve("env") tell InspectPheromoneEnvironmentMessage(position, true, antId)
             } else {

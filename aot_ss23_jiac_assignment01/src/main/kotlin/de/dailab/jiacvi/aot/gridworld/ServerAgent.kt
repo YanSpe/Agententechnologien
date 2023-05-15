@@ -25,7 +25,7 @@ class ServerAgent(
 
 		// start or restart a new game
 		respond<StartGameMessage, StartGameResponse> { msg ->
-			log.info("Received $msg")
+			//log.info("Received $msg")
 			if (activeGame != null) log.warn("Restarting game with game still running.")
 
 			// read gridfile, see main. start with turn=-1 so that after increment in execute the first turn is 0
@@ -73,7 +73,7 @@ class ServerAgent(
 
 		// handle incoming requests from ants, check model and message files for details
 		respond<AntActionRequest, AntActionResponse> { msg ->
-			log.info("Received $msg")
+			//log.info("Received $msg")
 			if (!hasActiveGame(msg.antId)) { return@respond AntActionResponse(false, ActionFlag.NO_ACTIVE_GAME) }
 			if (!allowedToAct(msg.antId)) { return@respond AntActionResponse(false, ActionFlag.MAX_ACTIONS) }
 

@@ -11,7 +11,7 @@ import de.dailab.jiacvi.behaviour.act
 class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) {
     // TODO you might need to put some variables to save stuff here
 
-    private val numberOfAnts: Int = 35
+    private val numberOfAnts: Int = 40
     private val antAgentsId: ArrayList<String> = ArrayList()
 
     private var size: Position = Position(1, 1)
@@ -57,9 +57,10 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         *   - adjust your parameters to get better results, i.e. amount of ants (capped at 40)
         */
         listen(BROADCAST_TOPIC) { message: GameTurnInform ->
-            log.info("GameTurnInfo-Env: " + message.gameTurn)
-            updatePheromones(foodPheromones, 0.1)
-            updatePheromones(nestPheromones, 0.1)
+            //log.info("GameTurnInfo-Env: " + message.gameTurn)
+            updatePheromones(foodPheromones, 0.07)
+            updatePheromones(nestPheromones, 0.02)
+            log.info("Foodpheromones: " + printPheromones(foodPheromones))
 
             for (ant in antAgentsId) {
                 system.resolve(ant) tell AntTurnInformation(message.gameTurn)
@@ -67,18 +68,18 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
         }
         on { message: PheromoneMessage ->
-            log.info("Updated useNestPheromone: " + message.useNestPheromone + " at position " + message.position)
+            //log.info("Updated useNestPheromone: " + message.useNestPheromone + " at position " + message.position)
             if (message.useNestPheromone) {
                 nestPheromones[message.position.x][message.position.y] += message.amount
             } else {
                 foodPheromones[message.position.x][message.position.y] += message.amount
             }
-            log.info("Nestpheromones: " + printPheromones(nestPheromones))
-            log.info("Foodpheromones: " + printPheromones(foodPheromones))
+            //log.info("Nestpheromones: " + printPheromones(nestPheromones))
+            //log.info("Foodpheromones: " + printPheromones(foodPheromones))
         }
 
         on { message: InspectPheromoneEnvironmentMessage ->
-            log.info("Ameise " + message.antID + " fragt nach Pheromonen an Stelle " + message.position + " mit useNestPheromon: " + message.useNestPheromone)
+            //log.info("Ameise " + message.antID + " fragt nach Pheromonen an Stelle " + message.position + " mit useNestPheromon: " + message.useNestPheromone)
             val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.useNestPheromone)
 
             system.resolve(message.antID) tell ReturnPheromoneEnvironmentMessage(
@@ -110,6 +111,10 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
                 if (a[i][j] != 0.0) {
                     a[i][j] -= x
                 }
+                if (a[i][j] < 0.0){
+                    a[i][j] = 0.0
+                }
+
             }
         }
         return
@@ -144,9 +149,9 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         for (positionToSort: Position in positionList) {
             sortPosList.add(SortPos(positionToSort, getMapValForPosition(positionToSort, useNestPheromone)))
         }
-        log.info("print sortPosList: " + printValueList(sortPosList))
+        //log.info("print sortPosList: " + printValueList(sortPosList))
         var sortedList = sortPosList.sortedBy { sortPos -> sortPos.value }
-        log.info("print sortedList: " + printValueList(sortedList))
+        //log.info("print sortedList: " + printValueList(sortedList))
         var allZero = true
         for (sorted: SortPos in sortedList) {
             if (sorted.value != 0.0) allZero = false
@@ -154,10 +159,10 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         if (allZero) {
             sortedList = sortedList.shuffled()
         }
-        log.info("print sortedList: " + printValueList(sortedList))
+        //log.info("print sortedList: " + printValueList(sortedList))
         val x: ArrayList<Position> = ArrayList()
         if (sortedList.size >= 3) {
-            log.info("The Best Position is " + sortedList[sortedList.size - 1].position + " with the value " + sortedList[sortedList.size - 1].value)
+            //log.info("The Best Position is " + sortedList[sortedList.size - 1].position + " with the value " + sortedList[sortedList.size - 1].value)
 
             x.add(sortedList[sortedList.size - 1].position)
             if (sortedList[sortedList.size - 2].value == 0.0 && sortedList[sortedList.size - 1].value != 0.0) {
