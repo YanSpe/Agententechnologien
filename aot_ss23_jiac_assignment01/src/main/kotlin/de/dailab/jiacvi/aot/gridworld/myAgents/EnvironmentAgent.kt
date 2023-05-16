@@ -13,16 +13,12 @@ import kotlin.system.exitProcess
 class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) {
     private val numberOfAnts: Int = 40
     private val antAgentsId: ArrayList<String> = ArrayList()
-
-    private var size: Position = Position(1, 1)
-    private var nestPosition: Position = Position(1, 1)
+    lateinit var size: Position
+    lateinit var nestPosition: Position
     private var obstacles: ArrayList<Position>? = null
-
-    var nestPheromones: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
-
-    var foodPheromones: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
-    var obstaclesFound: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
-
+    lateinit var nestPheromones: Array<Array<Double>>
+    lateinit var foodPheromones: Array<Array<Double>>
+    lateinit var obstaclesFound: Array<Array<Double>>
 
     override fun preStart() {
         super.preStart()
@@ -89,7 +85,6 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             log.info("score: " + message.score)
             exitProcess(0)
         }
-
     }
 
     private fun intialize(): List<String> {
@@ -124,11 +119,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         return retString
     }
 
-    private fun get3BestPositions(
-        antPosition: Position,
-        useNestPheromone: Boolean,
-        lastPosition: Position
-    ): ArrayList<Position> {
+    private fun get3BestPositions(antPosition: Position, useNestPheromone: Boolean, lastPosition: Position): ArrayList<Position> {
         val positionList: ArrayList<Position> = ArrayList()
 
         if (antPosition.x + 1 < size.x) {
@@ -158,7 +149,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         for (sorted: SortPos in sortedList) {
             if (sorted.value != 0.0) allZero = false
         }
-        val x: ArrayList<Position> = ArrayList()
+        val threePositions: ArrayList<Position> = ArrayList()
 
         if (allZero) {
             sortedList = sortedList.shuffled()
@@ -166,68 +157,60 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         //log.info("print sortedList: " + printValueList(sortedList))
         if (sortedList.size >= 3) {
             //log.info("The Best Position is " + sortedList[sortedList.size - 1].position + " with the value " + sortedList[sortedList.size - 1].value)
-
-            x.add(sortedList[sortedList.size - 1].position)
+            threePositions.add(sortedList[sortedList.size - 1].position)
             if (sortedList[sortedList.size - 2].value == 0.0 && sortedList[sortedList.size - 1].value != 0.0) {
-                x.add(sortedList[sortedList.size - 1].position)
+                threePositions.add(sortedList[sortedList.size - 1].position)
             } else {
-                x.add(sortedList[sortedList.size - 2].position)
+                threePositions.add(sortedList[sortedList.size - 2].position)
             }
-            x.add(sortedList[sortedList.size - 3].position)
+            threePositions.add(sortedList[sortedList.size - 3].position)
         } else {
-            // bei 0 möglichen Positionen schmiert das ganze ab --> weiß aber auch nicht, wie es dazu kommen sollte
             for (element in sortedList) {
-                x.add(element.position)
+                threePositions.add(element.position)
             }
         }
 
-        var iteration1 = 0
-        while (x.size < 3 && iteration1 < 20) {
-
+        var iteration0 = 0
+        while (threePositions.size < 3 && iteration0 < 20) {
             //log.info("Warning: x.size == 0")
             val xrand = (-1..1).random() + antPosition.x
             val yrand = (-1..1).random() + antPosition.y
             if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
                 if (obstaclesFound[xrand][yrand] != 1.0) {
-                    x.add(Position(xrand, yrand))
+                    threePositions.add(Position(xrand, yrand))
                 } else {
-                    iteration1--
+                    iteration0--
                 }
             }
-
-            iteration1++
+            iteration0++
         }
 
-        // Logik der Ant ins Environment
-
-        if (x[0] == lastPosition && !useNestPheromone) {
+        if (threePositions[0] == lastPosition && !useNestPheromone) {
             //val random = 0
-            var iteration = 0
-            while ((x[0] == lastPosition || x[0] == antPosition) && iteration < 10) {
+            var iteration1 = 0
+            while ((threePositions[0] == lastPosition || threePositions[0] == antPosition) && iteration1 < 10) {
                 val random = Random.nextDouble()
-                val xnew = antPosition.x - x[0].x + antPosition.x
-                val ynew = antPosition.y - x[0].y + antPosition.y
+                val xnew = antPosition.x - threePositions[0].x + antPosition.x
+                val ynew = antPosition.y - threePositions[0].y + antPosition.y
                 if (random <= 0.5 && xnew < size.x && xnew >= 0 && ynew < size.y && ynew >= 0) {
                     if (obstaclesFound[xnew][ynew] != 1.0) {
-                        x[0] = Position(xnew, ynew)
+                        threePositions[0] = Position(xnew, ynew)
                     }
                 } else {
                     val xrand = (-1..1).random() + antPosition.x
                     val yrand = (-1..1).random() + antPosition.y
                     if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
                         if (obstaclesFound[xrand][yrand] != 1.0) {
-                            x[0] = Position(xrand, yrand)
+                            threePositions[0] = Position(xrand, yrand)
                         }
                     }
                 }
-                iteration++
+                iteration1++
                 //log.info("x[0] was changed to: "+ x[0]+ " from: "+ lastPosition)
             }
-
             //log.info("Ich bin Ameise " + antId + " mit random = " + random + " und neuer p0: " + pos0)
         }
-
-        return x
+        return threePositions
     }
 
     private fun getMapValForPosition(position: Position, useNestPheromone: Boolean): Double {
@@ -236,13 +219,6 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         return map[position.x][position.y]
     }
 
-    private fun printValueList(list: List<SortPos>): String {
-        var s = ""
-        for (elem in list) {
-            s += ", " + elem.value
-        }
-        return s
-    }
 }
 
 data class SortPos(
