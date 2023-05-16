@@ -3,6 +3,7 @@ package de.dailab.jiacvi.aot.gridworld.myAgents
 import de.dailab.jiacvi.Agent
 import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
+import kotlin.random.Random
 
 
 /**
@@ -27,6 +28,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
     //private val yFood: IntArray = intArrayOf(size.y)
     //private var foodPheromones: Array<IntArray> = arrayOf(xFood, yFood)
     var foodPheromones: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
+    var obstaclesFound: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
 
 
     override fun preStart() {
@@ -38,6 +40,8 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
             nestPheromones = Array(size.x) { Array(size.y) { 0.0 } }
             foodPheromones = Array(size.x) { Array(size.y) { 0.0 } }
+            obstaclesFound = Array(size.x) { Array(size.y) { 0.0 } }
+
             for (ant in antAgentsId) {
                 system.resolve(ant) tell EnvironmentSetUpAntMessage(nestPosition)
             }
@@ -58,9 +62,9 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         */
         listen(BROADCAST_TOPIC) { message: GameTurnInform ->
             //log.info("GameTurnInfo-Env: " + message.gameTurn)
-            updatePheromones(foodPheromones, 0.07)
-            updatePheromones(nestPheromones, 0.02)
-            log.info("Foodpheromones: " + printPheromones(foodPheromones))
+            updatePheromones(foodPheromones, 0.06)
+            updatePheromones(nestPheromones, 0.03)
+            //log.info("Foodpheromones: " + printPheromones(foodPheromones))
 
             for (ant in antAgentsId) {
                 system.resolve(ant) tell AntTurnInformation(message.gameTurn)
@@ -78,15 +82,22 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             //log.info("Foodpheromones: " + printPheromones(foodPheromones))
         }
 
+
         on { message: InspectPheromoneEnvironmentMessage ->
             //log.info("Ameise " + message.antID + " fragt nach Pheromonen an Stelle " + message.position + " mit useNestPheromon: " + message.useNestPheromone)
-            val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.useNestPheromone)
+            val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.useNestPheromone, message.lastPosition)
 
             system.resolve(message.antID) tell ReturnPheromoneEnvironmentMessage(
                 possiblePos.get(0),
                 possiblePos.get(1),
-                possiblePos.get(2)
+                possiblePos.get(2),
+                obstaclesFound
             )
+        }
+
+        on { message: ObstacleMessage ->
+            obstaclesFound[message.obstaclePosition.x][message.obstaclePosition.y] = 1.0
+            log.info("Obstacle found at: " + message.obstaclePosition +" Alle obstacles: " + printPheromones(obstaclesFound))
         }
 
         on { message: EndGameMessage ->
@@ -128,7 +139,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         return retString
     }
 
-    private fun getPossiblePositions(antPosition: Position, useNestPheromone: Boolean): ArrayList<Position> {
+    private fun getPossiblePositions(antPosition: Position, useNestPheromone: Boolean, lastPosition: Position): ArrayList<Position> {
         val positionList: ArrayList<Position> = ArrayList()
 
         if (antPosition.x + 1 < size.x) {
@@ -147,7 +158,11 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
         val sortPosList: ArrayList<SortPos> = ArrayList()
         for (positionToSort: Position in positionList) {
-            sortPosList.add(SortPos(positionToSort, getMapValForPosition(positionToSort, useNestPheromone)))
+           if (obstaclesFound[positionToSort.x][positionToSort.y] != 1.0) {
+               sortPosList.add(SortPos(positionToSort, getMapValForPosition(positionToSort, useNestPheromone)))
+           } else {
+               //log.info("Removed position "+ positionToSort + " from considered positions due to obstacle")
+           }
         }
         //log.info("print sortPosList: " + printValueList(sortPosList))
         var sortedList = sortPosList.sortedBy { sortPos -> sortPos.value }
@@ -184,6 +199,32 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
                 }
             }
         }
+        // Logik der Ant ins Environment
+        if (x[0] == lastPosition && !useNestPheromone){
+            //val random = 0
+                while (x[0] == lastPosition || x[0] == antPosition){
+                    val random = Random.nextDouble()
+                    var xnew = antPosition.x-x[0].x+antPosition.x
+                    var ynew = antPosition.y-x[0].y+antPosition.y
+                    if(random <= 0.5 && xnew < size.x && xnew >= 0 && ynew < size.y && ynew >= 0){
+                        if (obstaclesFound[xnew][ynew] != 1.0){
+                            x[0] = Position(xnew, ynew)
+                        }
+                    } else {
+                        var xrand = (-1..1).random()+antPosition.x
+                        var yrand = (-1..1).random()+antPosition.y
+                        if(xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0){
+                            if (obstaclesFound[xrand][yrand] != 1.0){
+                                x[0] = Position(xrand, yrand)
+                            }
+                        }
+                    }
+                    log.info("x[0] was changed to: "+ x[0]+ " from: "+ lastPosition)
+            }
+
+            //log.info("Ich bin Ameise " + antId + " mit random = " + random + " und neuer p0: " + pos0)
+        }
+
         return x
     }
 
