@@ -19,8 +19,14 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
     private var nestPosition: Position = Position(1, 1)
     private var obstacles: ArrayList<Position>? = null
 
+    //private val xNest: IntArray = intArrayOf(size.x)
+    //private val yNest: IntArray = intArrayOf(size.y)
+    //private val nestPheromones: Array<IntArray> = arrayOf(xNest, yNest)
     var nestPheromones: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
 
+    //private val xFood: IntArray = intArrayOf(size.x)
+    //private val yFood: IntArray = intArrayOf(size.y)
+    //private var foodPheromones: Array<IntArray> = arrayOf(xFood, yFood)
     var foodPheromones: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
     var obstaclesFound: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
 
@@ -95,7 +101,6 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         }
 
         on { message: EndGameMessage ->
-            log.info("score: " + message.score)
             system.terminate()
         }
 
@@ -182,21 +187,23 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             }
             x.add(sortedList[sortedList.size - 3].position)
         } else {
+            // bei 0 möglichen Positionen schmiert das ganze ab --> weiß aber auch nicht, wie es dazu kommen sollte
+            val x: ArrayList<Position> = ArrayList()
             for (element in sortedList) {
                 x.add(element.position)
             }
             while (x.size < 3) {
                 if (x.size == 0) {
                     log.info("Warning: x.size == 0")
-                    val xrand = (-1..1).random() + antPosition.x
-                    val yrand = (-1..1).random() + antPosition.y
+                    var xrand = (-1..1).random() + antPosition.x
+                    var yrand = (-1..1).random() + antPosition.y
                     if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
                         if (obstaclesFound[xrand][yrand] != 1.0) {
                             x.add(Position(xrand, yrand))
                         }
                     }
                 } else {
-                    x.add(x.get(x.lastIndex))
+                    x.add(x.get(x.lastIndex - 1))
                 }
             }
         }
@@ -206,15 +213,15 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             //val random = 0
                 while (x[0] == lastPosition || x[0] == antPosition){
                     val random = Random.nextDouble()
-                    val xnew = antPosition.x-x[0].x+antPosition.x
-                    val ynew = antPosition.y-x[0].y+antPosition.y
+                    var xnew = antPosition.x-x[0].x+antPosition.x
+                    var ynew = antPosition.y-x[0].y+antPosition.y
                     if(random <= 0.5 && xnew < size.x && xnew >= 0 && ynew < size.y && ynew >= 0){
                         if (obstaclesFound[xnew][ynew] != 1.0){
                             x[0] = Position(xnew, ynew)
                         }
                     } else {
-                        val xrand = (-1..1).random()+antPosition.x
-                        val yrand = (-1..1).random()+antPosition.y
+                        var xrand = (-1..1).random()+antPosition.x
+                        var yrand = (-1..1).random()+antPosition.y
                         if(xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0){
                             if (obstaclesFound[xrand][yrand] != 1.0){
                                 x[0] = Position(xrand, yrand)
