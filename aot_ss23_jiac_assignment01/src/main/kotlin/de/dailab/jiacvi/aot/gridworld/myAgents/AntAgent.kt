@@ -5,18 +5,18 @@ import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
 import kotlin.collections.ArrayList
 import kotlin.random.Random
+import kotlin.system.exitProcess
 
 /**
  * Stub for your AntAgent
  * */
-class AntAgent(antId: String) : Agent(overrideName = antId) {
+class AntAgent(var antId: String) : Agent(overrideName = antId) {
     // TODO you might need to put some variables to save stuff here
     var position: Position = Position(0, 100)
     var nextPosition: Position = Position(0, 101)
     var nestPosition: Position = Position(0, 102)
     var lastPosition: Position = Position(100, 0)
     var holdingFood: Boolean = false
-    var antId: String = antId
     var atFood: Boolean = false
     var amount: Double = 1.0
     var pos0: Position = Position(20, 0)
@@ -25,8 +25,6 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
     var lastAction: AntAction = AntAction.NORTH
     var usePos1: Double = 0.70
     var usePos2: Double = 0.20
-    var usePos3: Double = 0.10
-    var obstaclesFound: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
 
     fun getMovePos(possiblePositions: ArrayList<Position>): Position {
         val random = Random.nextDouble()
@@ -38,13 +36,11 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
     fun doAction() {
         val positionList: ArrayList<Position> = ArrayList()
 
-        //if (pos0 == lastPosition && lastAction != AntAction.DROP && lastAction != AntAction.TAKE){
         //log.info("Ich bin Ameise " + antId + " meine letzte Position war " + lastPosition + " und meine pos0 ist " + pos0)
 
         positionList.add(pos0)
         positionList.add(pos1)
         positionList.add(pos2)
-        //val move: Position = positionList.shuffled().first()
         val move: Position = getMovePos(positionList)
         var action: AntAction? = null
 
@@ -53,7 +49,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
             action = AntAction.DROP
         } else if (!holdingFood && atFood) {
             action = AntAction.TAKE
-            log.info("Ich bin Ameise " + antId + "und wähle Take Position: " + position + " atFood: " + atFood+ " holdingFood: "+ holdingFood)
+            //log.info("Ich bin Ameise " + antId + "und wähle Take Position: " + position + " atFood: " + atFood+ " holdingFood: "+ holdingFood)
         }
         if (action == null) {
             action = convertPositionToAction(position, move)
@@ -66,7 +62,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
         //log.info("Ich bin Ameise " + antId + " und wähle action " + action)
         system.resolve("server") invoke ask<AntActionResponse>(AntActionRequest(antId, action)) { message ->
 
-            log.info("AntActionResponse für Ameise " + antId + ": " + message.state + " für Action "+ action +" at position: "+ position +", with flag: " + message.flag)
+            //log.info("AntActionResponse für Ameise " + antId + ": " + message.state + " für Action "+ action +" at position: "+ position +", with flag: " + message.flag)
             if (message.state) {
                 if (lastAction == AntAction.TAKE) {
                     holdingFood = true
@@ -94,14 +90,12 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
                 }
 
                 //log.info("New position for ant " + antId + ": " + position)
-            } else if (message.flag != ActionFlag.MAX_ACTIONS && message.flag != ActionFlag.NO_ACTIVE_GAME) {
-                //doAction()
-
             }
 
+            var a = 1
             when (message.flag) {
-                ActionFlag.NO_ACTIVE_GAME -> log.info("No Active Game")  // ant is not registered or no game started
-                ActionFlag.MAX_ACTIONS -> log.info("Ameise "+ antId + " tried too many actions")    // ants can only do 1 action per turn
+                ActionFlag.NO_ACTIVE_GAME -> system.terminate()//log.info("No Active Game")  // ant is not registered or no game started
+                ActionFlag.MAX_ACTIONS -> a = 1//log.info("Ameise "+ antId + " tried too many actions")    // ants can only do 1 action per turn
                 ActionFlag.OBSTACLE -> {
                     system.resolve("env") tell ObstacleMessage(move)
                 }       // border of grid or obstacle (#) in grid
@@ -110,14 +104,14 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
                         atFood = false
                     }
                 }        // ant has no food to drop or is not at active food source to take
-                //ActionFlag.NO_NEST -> log.info("no nest")        // ant is not at nest while trying to drop
+                ActionFlag.NO_NEST -> a = 2//log.info("no nest")        // ant is not at nest while trying to drop
                 ActionFlag.HAS_FOOD -> {
                     if (!holdingFood) {
                         atFood = true
-                        log.info("Ich bin Ameise " + antId + " und ich bin an einer Food Source and Position: "+ position)
+                        //log.info("Ich bin Ameise " + antId + " und ich bin an einer Food Source and Position: "+ position)
                     }
                 }   // new position is active food source or ant has food and can't take more
-                //ActionFlag.NONE -> log.info("none")
+                ActionFlag.NONE -> a = 3//log.info("none")
             }
 
         }
@@ -151,20 +145,13 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
     }
 
     override fun behaviour() = act {
-        /* TODO here belongs most of your agents logic.
-        *   - Check the readme "Reactive Behaviour" part and see the Server for some examples
-        *   - try to make a move in the gridworld
-        *   - build your ant algorithm by communicating with your environment when looking for the way
-        *   - adjust your parameters to get better results
-        */
-
         on { message: EnvironmentSetUpAntMessage ->
             position = message.position
             nestPosition = message.position
             //log.info("EnvironmentSetUpAntMessage: Ich bin Ameise " + antId + " und bin an Postion: " + position)
         }
 
-        on { message: AntTurnInformation ->
+        on { message: AntTurnMessage ->
             //log.info("AntturnInfo: " + message.turn)
             if (holdingFood) {
                 system.resolve("env") tell InspectPheromoneEnvironmentMessage(position, true, antId, lastPosition)
@@ -173,7 +160,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
             }
         }
 
-        on { message: ReturnPheromoneEnvironmentMessage ->
+        on { message: Return3BestPositionsMessage ->
             //log.info("Ich bin Ameise " + antId + " und habe folgende Koordinaten mit den meisten Pheromonen erhalten " + message.p0 + " " + message.p1 + " " + message.p2)
             pos0 = message.p0
             pos1 = message.p1
@@ -182,7 +169,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
         }
 
         on { message: EndGameMessage ->
-            system.terminate()
+            exitProcess(0)
         }
 
     }

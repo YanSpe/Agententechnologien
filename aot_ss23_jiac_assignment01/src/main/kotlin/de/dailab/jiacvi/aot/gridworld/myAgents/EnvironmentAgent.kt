@@ -4,14 +4,13 @@ import de.dailab.jiacvi.Agent
 import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
 import kotlin.random.Random
+import kotlin.system.exitProcess
 
 
 /**
  * Stub for your EnvironmentAgent
  * */
 class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) {
-    // TODO you might need to put some variables to save stuff here
-
     private val numberOfAnts: Int = 40
     private val antAgentsId: ArrayList<String> = ArrayList()
 
@@ -19,14 +18,8 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
     private var nestPosition: Position = Position(1, 1)
     private var obstacles: ArrayList<Position>? = null
 
-    //private val xNest: IntArray = intArrayOf(size.x)
-    //private val yNest: IntArray = intArrayOf(size.y)
-    //private val nestPheromones: Array<IntArray> = arrayOf(xNest, yNest)
     var nestPheromones: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
 
-    //private val xFood: IntArray = intArrayOf(size.x)
-    //private val yFood: IntArray = intArrayOf(size.y)
-    //private var foodPheromones: Array<IntArray> = arrayOf(xFood, yFood)
     var foodPheromones: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
     var obstaclesFound: Array<Array<Double>> = Array(1) { Array(1) { 0.0 } }
 
@@ -52,14 +45,6 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
     }
 
     override fun behaviour() = act {
-        /* TODO here belongs most of your agents logic.
-        *   - Check the readme "Reactive Behaviour" part and see the Server for some examples
-        *   - try to start a game with the StartGameMessage
-        *   - you need to initialize your ants, they don't know where they start
-        *   - here you should manage the pheromones dropped by your ants
-        *   - REMEMBER: pheromones should transpire, so old routes get lost
-        *   - adjust your parameters to get better results, i.e. amount of ants (capped at 40)
-        */
         listen(BROADCAST_TOPIC) { message: GameTurnInform ->
             //log.info("GameTurnInfo-Env: " + message.gameTurn)
             updatePheromones(foodPheromones, 0.06)
@@ -67,7 +52,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             //log.info("Foodpheromones: " + printPheromones(foodPheromones))
 
             for (ant in antAgentsId) {
-                system.resolve(ant) tell AntTurnInformation(message.gameTurn)
+                system.resolve(ant) tell AntTurnMessage(message.gameTurn)
             }
 
         }
@@ -85,23 +70,24 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
         on { message: InspectPheromoneEnvironmentMessage ->
             //log.info("Ameise " + message.antID + " fragt nach Pheromonen an Stelle " + message.position + " mit useNestPheromon: " + message.useNestPheromone)
-            val possiblePos: ArrayList<Position> = getPossiblePositions(message.position, message.useNestPheromone, message.lastPosition)
+            val possiblePos: ArrayList<Position> =
+                get3BestPositions(message.position, message.useNestPheromone, message.lastPosition)
 
-            system.resolve(message.antID) tell ReturnPheromoneEnvironmentMessage(
+            system.resolve(message.antID) tell Return3BestPositionsMessage(
                 possiblePos.get(0),
                 possiblePos.get(1),
-                possiblePos.get(2),
-                obstaclesFound
+                possiblePos.get(2)
             )
         }
 
         on { message: ObstacleMessage ->
             obstaclesFound[message.obstaclePosition.x][message.obstaclePosition.y] = 1.0
-            log.info("Obstacle found at: " + message.obstaclePosition +" Alle obstacles: " + printPheromones(obstaclesFound))
+            //log.info("Obstacle found at: " + message.obstaclePosition +" Alle obstacles: " + printPheromones(obstaclesFound))
         }
 
         on { message: EndGameMessage ->
-            system.terminate()
+            log.info("score: " + message.score)
+            exitProcess(0)
         }
 
     }
@@ -122,24 +108,27 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
                 if (a[i][j] != 0.0) {
                     a[i][j] -= x
                 }
-                if (a[i][j] < 0.0){
+                if (a[i][j] < 0.0) {
                     a[i][j] = 0.0
                 }
-
             }
         }
         return
     }
 
     private fun printPheromones(a: Array<Array<Double>>): String {
-        var retString: String = ""
+        var retString = ""
         for (row in a) {
             retString += "," + row.contentToString()
         }
         return retString
     }
 
-    private fun getPossiblePositions(antPosition: Position, useNestPheromone: Boolean, lastPosition: Position): ArrayList<Position> {
+    private fun get3BestPositions(
+        antPosition: Position,
+        useNestPheromone: Boolean,
+        lastPosition: Position
+    ): ArrayList<Position> {
         val positionList: ArrayList<Position> = ArrayList()
 
         if (antPosition.x + 1 < size.x) {
@@ -158,11 +147,9 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
 
         val sortPosList: ArrayList<SortPos> = ArrayList()
         for (positionToSort: Position in positionList) {
-           if (obstaclesFound[positionToSort.x][positionToSort.y] != 1.0) {
-               sortPosList.add(SortPos(positionToSort, getMapValForPosition(positionToSort, useNestPheromone)))
-           } else {
-               //log.info("Removed position "+ positionToSort + " from considered positions due to obstacle")
-           }
+            if (obstaclesFound[positionToSort.x][positionToSort.y] != 1.0) {
+                sortPosList.add(SortPos(positionToSort, getMapValForPosition(positionToSort, useNestPheromone)))
+            }
         }
         //log.info("print sortPosList: " + printValueList(sortPosList))
         var sortedList = sortPosList.sortedBy { sortPos -> sortPos.value }
@@ -194,54 +181,45 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             }
         }
 
-        var iteration1: Int = 0
+        var iteration1 = 0
         while (x.size < 3 && iteration1 < 5) {
-                if (x.size == 0) {
-                    log.info("Warning: x.size == 0")
-                    var xrand = (-1..1).random() + antPosition.x
-                    var yrand = (-1..1).random() + antPosition.y
-                    if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
-                        if (obstaclesFound[xrand][yrand] != 1.0) {
-                            x.add(Position(xrand, yrand))
-                        }
-                    }
-                } else {
-                    //x.add(x.get(x.lastIndex - 1))
-                    var xrand = (-1..1).random() + antPosition.x
-                    var yrand = (-1..1).random() + antPosition.y
-                    if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
-                        if (obstaclesFound[xrand][yrand] != 1.0) {
-                            x.add(Position(xrand, yrand))
-                        }
-                    }
+
+            //log.info("Warning: x.size == 0")
+            val xrand = (-1..1).random() + antPosition.x
+            val yrand = (-1..1).random() + antPosition.y
+            if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
+                if (obstaclesFound[xrand][yrand] != 1.0) {
+                    x.add(Position(xrand, yrand))
                 }
-            iteration1++
             }
+
+            iteration1++
+        }
 
         // Logik der Ant ins Environment
 
-        if (x[0] == lastPosition && !useNestPheromone){
+        if (x[0] == lastPosition && !useNestPheromone) {
             //val random = 0
-                var iteration: Int = 0
-                while ((x[0] == lastPosition || x[0] == antPosition) && iteration < 5){
-                    val random = Random.nextDouble()
-                    var xnew = antPosition.x-x[0].x+antPosition.x
-                    var ynew = antPosition.y-x[0].y+antPosition.y
-                    if(random <= 0.5 && xnew < size.x && xnew >= 0 && ynew < size.y && ynew >= 0){
-                        if (obstaclesFound[xnew][ynew] != 1.0){
-                            x[0] = Position(xnew, ynew)
-                        }
-                    } else {
-                        var xrand = (-1..1).random()+antPosition.x
-                        var yrand = (-1..1).random()+antPosition.y
-                        if(xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0){
-                            if (obstaclesFound[xrand][yrand] != 1.0){
-                                x[0] = Position(xrand, yrand)
-                            }
+            var iteration = 0
+            while ((x[0] == lastPosition || x[0] == antPosition) && iteration < 5) {
+                val random = Random.nextDouble()
+                val xnew = antPosition.x - x[0].x + antPosition.x
+                val ynew = antPosition.y - x[0].y + antPosition.y
+                if (random <= 0.5 && xnew < size.x && xnew >= 0 && ynew < size.y && ynew >= 0) {
+                    if (obstaclesFound[xnew][ynew] != 1.0) {
+                        x[0] = Position(xnew, ynew)
+                    }
+                } else {
+                    val xrand = (-1..1).random() + antPosition.x
+                    val yrand = (-1..1).random() + antPosition.y
+                    if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
+                        if (obstaclesFound[xrand][yrand] != 1.0) {
+                            x[0] = Position(xrand, yrand)
                         }
                     }
-                    iteration++
-                    log.info("x[0] was changed to: "+ x[0]+ " from: "+ lastPosition)
+                }
+                iteration++
+                //log.info("x[0] was changed to: "+ x[0]+ " from: "+ lastPosition)
             }
 
             //log.info("Ich bin Ameise " + antId + " mit random = " + random + " und neuer p0: " + pos0)
