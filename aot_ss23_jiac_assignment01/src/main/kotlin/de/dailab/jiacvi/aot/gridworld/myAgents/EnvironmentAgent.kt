@@ -192,14 +192,23 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             for (element in sortedList) {
                 x.add(element.position)
             }
-            for (i in 1..3) {
-                if (x.size == 3) break
-                else {
+            while (x.size < 3) {
+                if (x.size == 0) {
+                    log.info("Warning: x.size == 0")
+                    var xrand = (-1..1).random() + antPosition.x
+                    var yrand = (-1..1).random() + antPosition.y
+                    if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
+                        if (obstaclesFound[xrand][yrand] != 1.0) {
+                            x.add(Position(xrand, yrand))
+                        }
+                    }
+                } else {
                     x.add(x.get(x.lastIndex - 1))
                 }
             }
         }
         // Logik der Ant ins Environment
+
         if (x[0] == lastPosition && !useNestPheromone){
             //val random = 0
                 while (x[0] == lastPosition || x[0] == antPosition){

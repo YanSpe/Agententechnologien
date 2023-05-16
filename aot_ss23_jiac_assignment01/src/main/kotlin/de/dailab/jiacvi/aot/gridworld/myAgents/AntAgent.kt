@@ -39,7 +39,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
         val positionList: ArrayList<Position> = ArrayList()
 
         //if (pos0 == lastPosition && lastAction != AntAction.DROP && lastAction != AntAction.TAKE){
-        log.info("Ich bin Ameise " + antId + " meine letzte Position war " + lastPosition + " und meine pos0 ist " + pos0)
+        //log.info("Ich bin Ameise " + antId + " meine letzte Position war " + lastPosition + " und meine pos0 ist " + pos0)
 
         positionList.add(pos0)
         positionList.add(pos1)
@@ -53,6 +53,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
             action = AntAction.DROP
         } else if (!holdingFood && atFood) {
             action = AntAction.TAKE
+            log.info("Ich bin Ameise " + antId + "und wähle Take Position: " + position + "atFood: " + atFood+ "holdingFood: "+ holdingFood)
         }
         if (action == null) {
             action = convertPositionToAction(position, move)
@@ -94,7 +95,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
 
                 //log.info("New position for ant " + antId + ": " + position)
             } else if (message.flag != ActionFlag.MAX_ACTIONS && message.flag != ActionFlag.NO_ACTIVE_GAME) {
-                //doAction() // warum war das aukommentiert?
+                //doAction()
 
             }
 
@@ -109,7 +110,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
                 ActionFlag.HAS_FOOD -> {
                     if (!holdingFood) {
                         atFood = true
-                        log.info("Ich bin Ameise " + antId + " und ich bin an einer Food Source")
+                        log.info("Ich bin Ameise " + antId + " und ich bin an einer Food Source and Position: "+ position)
                     }
                 }   // new position is active food source or ant has food and can't take more
                 //ActionFlag.NONE -> log.info("none")
