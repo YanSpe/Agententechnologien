@@ -12,17 +12,17 @@ import kotlin.system.exitProcess
  * */
 class AntAgent(var antId: String) : Agent(overrideName = antId) {
     // TODO you might need to put some variables to save stuff here
-    var position: Position = Position(0, 100)
-    var nextPosition: Position = Position(0, 101)
-    var nestPosition: Position = Position(0, 102)
-    var lastPosition: Position = Position(100, 0)
+    lateinit var position: Position
+    lateinit var nextPosition: Position
+    lateinit var nestPosition: Position
+    lateinit var lastPosition: Position
     var holdingFood: Boolean = false
     var atFood: Boolean = false
     var amount: Double = 1.0
-    var pos0: Position = Position(20, 0)
-    var pos1: Position = Position(30, 0)
-    var pos2: Position = Position(40, 0)
-    var lastAction: AntAction = AntAction.NORTH
+    lateinit var pos0: Position
+    lateinit var pos1: Position
+    lateinit var pos2: Position
+    lateinit var lastAction: AntAction
     var usePos1: Double = 0.70
     var usePos2: Double = 0.20
 
@@ -34,16 +34,14 @@ class AntAgent(var antId: String) : Agent(overrideName = antId) {
     }
 
     fun doAction() {
+        var action: AntAction? = null
         val positionList: ArrayList<Position> = ArrayList()
-
-        //log.info("Ich bin Ameise " + antId + " meine letzte Position war " + lastPosition + " und meine pos0 ist " + pos0)
-
         positionList.add(pos0)
         positionList.add(pos1)
         positionList.add(pos2)
         val move: Position = getMovePos(positionList)
-        var action: AntAction? = null
 
+        //log.info("Ich bin Ameise " + antId + " meine letzte Position war " + lastPosition + " und meine pos0 ist " + pos0)
         if (holdingFood && position == nestPosition) {
             //log.info("Ich bin Ameise " + antId + "und wähle DROP Position: " + position + " nestPosition: " + nestPosition)
             action = AntAction.DROP
@@ -54,9 +52,7 @@ class AntAgent(var antId: String) : Agent(overrideName = antId) {
         if (action == null) {
             action = convertPositionToAction(position, move)
         }
-
         nextPosition = move
-
         lastAction = action
 
         //log.info("Ich bin Ameise " + antId + " und wähle action " + action)
@@ -92,26 +88,25 @@ class AntAgent(var antId: String) : Agent(overrideName = antId) {
                 //log.info("New position for ant " + antId + ": " + position)
             }
 
-            var a = 1
             when (message.flag) {
-                ActionFlag.NO_ACTIVE_GAME -> system.terminate()//log.info("No Active Game")  // ant is not registered or no game started
-                ActionFlag.MAX_ACTIONS -> a = 1//log.info("Ameise "+ antId + " tried too many actions")    // ants can only do 1 action per turn
-                ActionFlag.OBSTACLE -> {
+                ActionFlag.OBSTACLE -> { // border of grid or obstacle (#) in grid
                     system.resolve("env") tell ObstacleMessage(move)
-                }       // border of grid or obstacle (#) in grid
-                ActionFlag.NO_FOOD -> {
+                }
+                ActionFlag.NO_FOOD -> { // ant has no food to drop or is not at active food source to take
                     if (lastAction == AntAction.TAKE){
                         atFood = false
                     }
-                }        // ant has no food to drop or is not at active food source to take
-                ActionFlag.NO_NEST -> a = 2//log.info("no nest")        // ant is not at nest while trying to drop
-                ActionFlag.HAS_FOOD -> {
+                }
+                ActionFlag.HAS_FOOD -> { // new position is active food source or ant has food and can't take more
                     if (!holdingFood) {
                         atFood = true
                         //log.info("Ich bin Ameise " + antId + " und ich bin an einer Food Source and Position: "+ position)
                     }
-                }   // new position is active food source or ant has food and can't take more
-                ActionFlag.NONE -> a = 3//log.info("none")
+                }
+                ActionFlag.NO_ACTIVE_GAME -> system.terminate() //log.info("No Active Game")  // ant is not registered or no game started
+                ActionFlag.MAX_ACTIONS -> {}//log.info("Ameise "+ antId + " tried too many actions")    // ants can only do 1 action per turn
+                ActionFlag.NO_NEST -> {}//log.info("no nest")        // ant is not at nest while trying to drop
+                ActionFlag.NONE -> {}//log.info("none")
             }
 
         }
@@ -148,6 +143,7 @@ class AntAgent(var antId: String) : Agent(overrideName = antId) {
         on { message: EnvironmentSetUpAntMessage ->
             position = message.position
             nestPosition = message.position
+            lastPosition = message.position
             //log.info("EnvironmentSetUpAntMessage: Ich bin Ameise " + antId + " und bin an Postion: " + position)
         }
 

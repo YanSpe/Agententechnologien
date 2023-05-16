@@ -182,7 +182,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         }
 
         var iteration1 = 0
-        while (x.size < 3 && iteration1 < 5) {
+        while (x.size < 3 && iteration1 < 20) {
 
             //log.info("Warning: x.size == 0")
             val xrand = (-1..1).random() + antPosition.x
@@ -190,6 +190,8 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
                 if (obstaclesFound[xrand][yrand] != 1.0) {
                     x.add(Position(xrand, yrand))
+                } else {
+                    iteration1--
                 }
             }
 
@@ -201,7 +203,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         if (x[0] == lastPosition && !useNestPheromone) {
             //val random = 0
             var iteration = 0
-            while ((x[0] == lastPosition || x[0] == antPosition) && iteration < 5) {
+            while ((x[0] == lastPosition || x[0] == antPosition) && iteration < 10) {
                 val random = Random.nextDouble()
                 val xnew = antPosition.x - x[0].x + antPosition.x
                 val ynew = antPosition.y - x[0].y + antPosition.y
