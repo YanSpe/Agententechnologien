@@ -11,17 +11,17 @@ import kotlin.random.Random
  * */
 class AntAgent(antId: String) : Agent(overrideName = antId) {
     // TODO you might need to put some variables to save stuff here
-    var position: Position = Position(0, 0)
-    var nextPosition: Position = Position(0, 0)
-    var nestPosition: Position = Position(0, 0)
-    var lastPosition: Position = Position(1, 0)
+    var position: Position = Position(0, 100)
+    var nextPosition: Position = Position(0, 101)
+    var nestPosition: Position = Position(0, 102)
+    var lastPosition: Position = Position(100, 0)
     var holdingFood: Boolean = false
     var antId: String = antId
     var atFood: Boolean = false
     var amount: Double = 1.0
-    var pos0: Position = Position(0, 0)
-    var pos1: Position = Position(0, 0)
-    var pos2: Position = Position(0, 0)
+    var pos0: Position = Position(20, 0)
+    var pos1: Position = Position(30, 0)
+    var pos2: Position = Position(40, 0)
     var lastAction: AntAction = AntAction.NORTH
     var usePos1: Double = 0.70
     var usePos2: Double = 0.20
@@ -53,7 +53,7 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
             action = AntAction.DROP
         } else if (!holdingFood && atFood) {
             action = AntAction.TAKE
-            log.info("Ich bin Ameise " + antId + "und wähle Take Position: " + position + "atFood: " + atFood+ "holdingFood: "+ holdingFood)
+            log.info("Ich bin Ameise " + antId + "und wähle Take Position: " + position + " atFood: " + atFood+ " holdingFood: "+ holdingFood)
         }
         if (action == null) {
             action = convertPositionToAction(position, move)
@@ -101,11 +101,15 @@ class AntAgent(antId: String) : Agent(overrideName = antId) {
 
             when (message.flag) {
                 ActionFlag.NO_ACTIVE_GAME -> log.info("No Active Game")  // ant is not registered or no game started
-                ActionFlag.MAX_ACTIONS -> log.info("too many actions")    // ants can only do 1 action per turn
+                ActionFlag.MAX_ACTIONS -> log.info("Ameise "+ antId + " tried too many actions")    // ants can only do 1 action per turn
                 ActionFlag.OBSTACLE -> {
                     system.resolve("env") tell ObstacleMessage(move)
                 }       // border of grid or obstacle (#) in grid
-                //ActionFlag.NO_FOOD -> log.info("no food")        // ant has no food to drop or is not at active food source to take
+                ActionFlag.NO_FOOD -> {
+                    if (lastAction == AntAction.TAKE){
+                        atFood = false
+                    }
+                }        // ant has no food to drop or is not at active food source to take
                 //ActionFlag.NO_NEST -> log.info("no nest")        // ant is not at nest while trying to drop
                 ActionFlag.HAS_FOOD -> {
                     if (!holdingFood) {

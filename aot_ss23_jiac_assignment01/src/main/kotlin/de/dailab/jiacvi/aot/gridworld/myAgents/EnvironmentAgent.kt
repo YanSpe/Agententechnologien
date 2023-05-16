@@ -171,11 +171,12 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
         for (sorted: SortPos in sortedList) {
             if (sorted.value != 0.0) allZero = false
         }
+        val x: ArrayList<Position> = ArrayList()
+
         if (allZero) {
             sortedList = sortedList.shuffled()
         }
         //log.info("print sortedList: " + printValueList(sortedList))
-        val x: ArrayList<Position> = ArrayList()
         if (sortedList.size >= 3) {
             //log.info("The Best Position is " + sortedList[sortedList.size - 1].position + " with the value " + sortedList[sortedList.size - 1].value)
 
@@ -188,11 +189,13 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
             x.add(sortedList[sortedList.size - 3].position)
         } else {
             // bei 0 möglichen Positionen schmiert das ganze ab --> weiß aber auch nicht, wie es dazu kommen sollte
-            val x: ArrayList<Position> = ArrayList()
             for (element in sortedList) {
                 x.add(element.position)
             }
-            while (x.size < 3) {
+        }
+
+        var iteration1: Int = 0
+        while (x.size < 3 && iteration1 < 5) {
                 if (x.size == 0) {
                     log.info("Warning: x.size == 0")
                     var xrand = (-1..1).random() + antPosition.x
@@ -203,15 +206,24 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
                         }
                     }
                 } else {
-                    x.add(x.get(x.lastIndex - 1))
+                    //x.add(x.get(x.lastIndex - 1))
+                    var xrand = (-1..1).random() + antPosition.x
+                    var yrand = (-1..1).random() + antPosition.y
+                    if (xrand < size.x && xrand >= 0 && yrand < size.y && yrand >= 0) {
+                        if (obstaclesFound[xrand][yrand] != 1.0) {
+                            x.add(Position(xrand, yrand))
+                        }
+                    }
                 }
+            iteration1++
             }
-        }
+
         // Logik der Ant ins Environment
 
         if (x[0] == lastPosition && !useNestPheromone){
             //val random = 0
-                while (x[0] == lastPosition || x[0] == antPosition){
+                var iteration: Int = 0
+                while ((x[0] == lastPosition || x[0] == antPosition) && iteration < 5){
                     val random = Random.nextDouble()
                     var xnew = antPosition.x-x[0].x+antPosition.x
                     var ynew = antPosition.y-x[0].y+antPosition.y
@@ -228,6 +240,7 @@ class EnvironmentAgent(private val envId: String) : Agent(overrideName = envId) 
                             }
                         }
                     }
+                    iteration++
                     log.info("x[0] was changed to: "+ x[0]+ " from: "+ lastPosition)
             }
 
