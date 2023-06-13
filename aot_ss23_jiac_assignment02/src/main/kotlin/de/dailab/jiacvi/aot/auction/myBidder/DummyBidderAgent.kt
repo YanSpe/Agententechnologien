@@ -20,6 +20,10 @@ class DummyBidderAgent(private val id: String): Agent(overrideName=id) {
         // TODO implement your bidding strategie. When to offer (buy/sell) items
         //  at which price. You can also use the cashin function if you need money.
 
+        // goal: sammle möglichst viele Items des gleichen typs mit noch möglichst viel Restgeld über
+        // --> ab 3 item des gleichen types kumulativ
+        //start: poste item mit wenigster Anzahl
+
         // register to all started auctions
         listen<StartAuction>(biddersTopic) {
             val message = Register(id)
@@ -62,6 +66,21 @@ class DummyBidderAgent(private val id: String): Agent(overrideName=id) {
             wallet = null
         }
 
+    }
+
+    private fun getItemOfMinimalNumber(): Item?  {
+        if (wallet != null) {
+            var maxItem = Item(-1)
+            var maxValue = -1
+            for (item in wallet!!.items) {
+                if (item.value > maxValue) {
+                    maxItem = item.key
+                    maxValue = item.value
+                }
+            }
+            return maxItem
+        }
+        return null
     }
 
 }
