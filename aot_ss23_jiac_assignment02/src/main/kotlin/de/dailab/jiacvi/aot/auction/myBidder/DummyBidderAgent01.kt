@@ -7,15 +7,17 @@ import de.dailab.jiacvi.behaviour.act
 import kotlin.system.exitProcess
 
 /**
- * This is a simple stub of the Bidder Agent. You can use this as a template to start your implementation.
+ * Problem --> der hier ist schlechter, als der andere --> warum???
+ * bekommen auch immer negative items --> warum???
  */
-class DummyBidderAgent(private val id: String) : Agent(overrideName = id) {
+class DummyBidderAgent01(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
-
+    private var itemStats: Map<Item, Stats>? = null
     // keep track of the bidder agent's own wallet
     private var wallet: Wallet? = null
     private var secret: Int = -1
+    private var epsilon: Double = 0.01
 
     override fun behaviour() = act {
         // easy - Bidder Agent.
@@ -53,6 +55,7 @@ class DummyBidderAgent(private val id: String) : Agent(overrideName = id) {
 
         listen<Digest>(biddersTopic) {
             log.debug("Received Digest: $it")
+            itemStats = it.itemStats
         }
 
         listen<LookingFor>(biddersTopic) {
@@ -68,14 +71,52 @@ class DummyBidderAgent(private val id: String) : Agent(overrideName = id) {
 
     }
 
+    private fun maxPrice(number: Int): Double {
+        return ((fib(number + 1) - fib(number)).toDouble())
+    }
+
+    private fun minValue(number: Int):Double {
+        return fib(number).toDouble()
+    }
+
+    private fun getPrice(item:  MutableMap.MutableEntry<Item, Int>): Double? {
+        //ich möchte den Gewinn maximieren, egal ob per Geld oder Items. Niemals ins negative gehen
+        if (itemStats != null) {
+            val stats = itemStats!!.get(item.key)
+            val maxPrice = maxPrice(item.value)
+            val minValue = minValue(item.value)
+
+            if (maxPrice > stats!!.median) {
+                // kaufen --> Median möchte ich senken, aber noch das Item bekommen
+                val newPrice = stats.median + epsilon
+                return if (newPrice >= minValue) newPrice
+                else null
+            } else if (maxPrice == stats.median) {
+                //mache auf alle Fälle Gewinn >= 0
+                //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
+                // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
+                //median == maxPrice -> Gewinn = 0
+                return if (maxPrice >= minValue) maxPrice
+                else null
+            } else {
+                //verkaufen --> Median erhöhen, aber noch das Item verkaufen
+                val newPrice = stats.median - epsilon
+                return if (newPrice >= minValue) newPrice
+                else null
+            }
+        } else {
+            return maxPrice(item.value)
+        }
+    }
+
     private fun bid() {
         val ref = system.resolve(auctioneer)
         if (wallet != null) {
             for (item in wallet!!.items) {
                 if (item.value == 0) continue
-                val optimalPrice = fib(item.value + 1) - fib(item.value)
-                if (optimalPrice <= wallet!!.credits) {
-                    ref invoke ask<Boolean>(Offer(id, secret, item.key, optimalPrice.toDouble())) { res ->
+                val optimalPrice = getPrice(item)
+                if (optimalPrice != null && optimalPrice <= wallet!!.credits) {
+                    ref invoke ask<Boolean>(Offer(id, secret, item.key, optimalPrice)) { res ->
                     }
                 }
             }
