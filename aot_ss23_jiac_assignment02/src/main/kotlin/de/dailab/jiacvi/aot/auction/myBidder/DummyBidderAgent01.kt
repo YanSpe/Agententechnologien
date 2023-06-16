@@ -9,6 +9,7 @@ import kotlin.system.exitProcess
 /**
  * Problem --> der hier ist schlechter, als der andere --> warum???
  * bekommen auch immer negative items --> warum???
+ * --> schicken zu viele Offers --> verdoppeln pro Runde
  */
 class DummyBidderAgent01(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
@@ -20,8 +21,6 @@ class DummyBidderAgent01(private val id: String) : Agent(overrideName = id) {
     private var epsilon: Double = 0.01
 
     override fun behaviour() = act {
-        // easy - Bidder Agent.
-        // buy and sell only received goods with formula: fib(number of good+1) - fib(number of good)
 
         // register to all started auctions
         listen<StartAuction>(biddersTopic) {
