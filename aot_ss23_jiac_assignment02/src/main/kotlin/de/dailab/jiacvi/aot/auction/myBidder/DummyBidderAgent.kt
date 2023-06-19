@@ -48,11 +48,11 @@ class DummyBidderAgent(private val id: String) : Agent(overrideName = id) {
                 Transfer.BOUGHT -> wallet?.update(it.item, +1, -it.price)
                 else -> {}
             }
-            bid()
         }
 
         listen<Digest>(biddersTopic) {
             log.debug("Received Digest: $it")
+            bid()
         }
 
         listen<LookingFor>(biddersTopic) {

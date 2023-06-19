@@ -24,10 +24,10 @@ const val auctioneer = "auctioneer"
  * score will be zero.
  */
 class AuctioneerAgent(
-        private val maxTurns: Int,
-        private val maxTurnsNoOffer: Int,
-        private val turnSeconds: Int
-    ): Agent(overrideName=auctioneer) {
+    private val maxTurns: Int,
+    private val maxTurnsNoOffer: Int,
+    private val turnSeconds: Int
+): Agent(overrideName=auctioneer) {
 
     enum class Phase {
         REGISTERING, STARTING, BIDDING, EVALUATING, END

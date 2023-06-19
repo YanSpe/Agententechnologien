@@ -49,12 +49,13 @@ class DummyBidderAgent01(private val id: String) : Agent(overrideName = id) {
                 Transfer.BOUGHT -> wallet?.update(it.item, +1, -it.price)
                 else -> {}
             }
-            bid()
+
         }
 
         listen<Digest>(biddersTopic) {
             log.debug("Received Digest: $it")
             itemStats = it.itemStats
+            bid()
         }
 
         listen<LookingFor>(biddersTopic) {
@@ -80,7 +81,7 @@ class DummyBidderAgent01(private val id: String) : Agent(overrideName = id) {
 
     private fun getPrice(item:  MutableMap.MutableEntry<Item, Int>): Double? {
         //ich möchte den Gewinn maximieren, egal ob per Geld oder Items. Niemals ins negative gehen
-        if (itemStats != null) {
+        if (itemStats != null && !itemStats!!.isEmpty()) {
             val stats = itemStats!!.get(item.key)
             val maxPrice = maxPrice(item.value)
             val minValue = minValue(item.value)
