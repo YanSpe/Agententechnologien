@@ -2,8 +2,7 @@ package de.dailab.jiacvi.aot.auction
 
 import de.dailab.jiacvi.communication.LocalBroker
 import de.dailab.jiacvi.dsl.agentSystem
-import de.dailab.jiacvi.aot.auction.myBidder.DummyBidderAgent
-import de.dailab.jiacvi.aot.auction.myBidder.DummyBidderAgent01
+import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent01
 
 
 fun main() {
@@ -14,7 +13,7 @@ fun main() {
             add(AuctioneerAgent(2,
                 5, 1))
             for (i in (1..2)) {
-                add(DummyBidderAgent01("dummy-$i"))
+                add(BidderAgent01("dummy-$i"))
             }
 
         }

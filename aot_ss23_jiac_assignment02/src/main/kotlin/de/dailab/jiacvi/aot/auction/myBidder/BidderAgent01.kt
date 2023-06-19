@@ -11,7 +11,7 @@ import kotlin.system.exitProcess
  * bekommen auch immer negative items --> warum???
  * --> schicken zu viele Offers --> verdoppeln pro Runde
  */
-class DummyBidderAgent01(private val id: String) : Agent(overrideName = id) {
+class BidderAgent01(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
     private var itemStats: Map<Item, Stats>? = null
