@@ -72,7 +72,7 @@ class DummyBidderAgent01(private val id: String) : Agent(overrideName = id) {
     }
 
     private fun maxPrice(number: Int): Double {
-        return ((fib(number + 1) - fib(number)).toDouble())
+        return (fib(number + 1).toDouble())
     }
 
     private fun minValue(number: Int):Double {
