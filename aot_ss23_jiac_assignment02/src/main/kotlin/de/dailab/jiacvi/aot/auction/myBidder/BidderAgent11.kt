@@ -6,7 +6,7 @@ import de.dailab.jiacvi.BrokerAgentRef
 import de.dailab.jiacvi.behaviour.act
 import kotlin.system.exitProcess
 
-class BidderAgent10(private val id: String) : Agent(overrideName = id) {
+class BidderAgent11(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
     private var itemStats: ArrayList<Map<Item, Stats>> = ArrayList()
@@ -117,7 +117,7 @@ class BidderAgent10(private val id: String) : Agent(overrideName = id) {
             } else {
                 //verkaufen --> Median erhöhen, aber noch das Item verkaufen
                 val newPrice = median - varianz
-                return if (newPrice >= minValue) newPrice
+                return if (newPrice in minValue..maxPrice) newPrice
                 else null
             }
         } else {
