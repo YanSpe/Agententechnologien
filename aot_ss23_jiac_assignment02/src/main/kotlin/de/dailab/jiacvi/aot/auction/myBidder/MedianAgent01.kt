@@ -6,13 +6,14 @@ import de.dailab.jiacvi.BrokerAgentRef
 import de.dailab.jiacvi.behaviour.act
 import kotlin.system.exitProcess
 
-class BidderAgent11(private val id: String) : Agent(overrideName = id) {
+class MedianAgent01(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
-    private var itemStats: ArrayList<Map<Item, Stats>> = ArrayList()
+    private var itemStats: Map<Item, Stats>? = null
     // keep track of the bidder agent's own wallet
     private var wallet: Wallet? = null
     private var secret: Int = -1
+    private var epsilon: Double = 0.01
 
     override fun behaviour() = act {
 
@@ -48,8 +49,7 @@ class BidderAgent11(private val id: String) : Agent(overrideName = id) {
 
         listen<Digest>(biddersTopic) {
             log.debug("Received Digest: $it")
-            itemStats.add(it.itemStats)
-            log.info(itemStats.size.toString())
+            itemStats = it.itemStats
             bid()
         }
 
@@ -66,26 +66,6 @@ class BidderAgent11(private val id: String) : Agent(overrideName = id) {
 
     }
 
-    private fun getMedian(item: Item): Double {
-        var sum = 0.0
-        for (digest in itemStats) {
-            sum += digest.get(item)?.median ?: 0.0
-        }
-        return (sum / itemStats.size)
-    }
-
-    private fun getVarianz(item: Item, median: Double): Double {
-        var varianz = 0.0
-        //log.info("varianz aus " + "median: " + median + " und stats: " + itemStats + " für item: " + item)
-        for (digest in itemStats) {
-            val newMedian = digest.get(item)?.median
-            if (newMedian == null) continue
-            val pow = Math.pow((newMedian - median), 2.0)
-            varianz += pow * (1/itemStats.size)
-        }
-        return varianz
-    }
-
     private fun maxPrice(number: Int): Double {
         return (fib(number + 1).toDouble())
     }
@@ -96,28 +76,27 @@ class BidderAgent11(private val id: String) : Agent(overrideName = id) {
 
     private fun getPrice(item:  MutableMap.MutableEntry<Item, Int>): Double? {
         //ich möchte den Gewinn maximieren, egal ob per Geld oder Items. Niemals ins negative gehen
-        if (!itemStats.isEmpty()) {
-            val median = getMedian(item.key)
+        if (itemStats != null && !itemStats!!.isEmpty()) {
+            val stats = itemStats!!.get(item.key)
             val maxPrice = maxPrice(item.value)
             val minValue = minValue(item.value)
-            val varianz = getVarianz(item.key, median)
-            val ratio =  maxPrice / median
 
-            if (maxPrice >= median) {
+            if (maxPrice > stats!!.median) {
                 // kaufen --> Median möchte ich senken, aber noch das Item bekommen
-                if (varianz == 0.0) {
-                    val newPrice = (median + maxPrice)/2
-                    return if (newPrice >= minValue) newPrice
-                    else null
-                } else {
-                    val newPrice = median + varianz * ratio
-                    return if (newPrice >= minValue) newPrice
-                    else null
-                }
+                val newPrice = stats.median + epsilon
+                return if (newPrice >= minValue) newPrice
+                else null
+            } else if (maxPrice == stats.median) {
+                //mache auf alle Fälle Gewinn >= 0
+                //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
+                // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
+                //median == maxPrice -> Gewinn = 0
+                return if (maxPrice >= minValue) maxPrice
+                else null
             } else {
                 //verkaufen --> Median erhöhen, aber noch das Item verkaufen
-                val newPrice = median - varianz
-                return if (newPrice in minValue..maxPrice) newPrice
+                val newPrice = stats.median - epsilon
+                return if (newPrice >= minValue) newPrice
                 else null
             }
         } else {

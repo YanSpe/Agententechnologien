@@ -6,16 +6,21 @@ import de.dailab.jiacvi.BrokerAgentRef
 import de.dailab.jiacvi.behaviour.act
 import kotlin.system.exitProcess
 
-class BidderAgent02(private val id: String) : Agent(overrideName = id) {
+/**
+ * This is a simple stub of the Bidder Agent. You can use this as a template to start your implementation.
+ */
+class MaxTypeAgent(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
-    private var itemStats: ArrayList<Map<Item, Stats>> = ArrayList()
+
     // keep track of the bidder agent's own wallet
     private var wallet: Wallet? = null
     private var secret: Int = -1
-    private var epsilon: Double = 0.01
+    private var maxItem: Int = -1
 
     override fun behaviour() = act {
+        // easy - Bidder Agent.
+        // buy and sell only received goods with formula: fib(number of good+1) - fib(number of good)
 
         // register to all started auctions
         listen<StartAuction>(biddersTopic) {
@@ -44,12 +49,10 @@ class BidderAgent02(private val id: String) : Agent(overrideName = id) {
                 Transfer.BOUGHT -> wallet?.update(it.item, +1, -it.price)
                 else -> {}
             }
-
         }
 
         listen<Digest>(biddersTopic) {
             log.debug("Received Digest: $it")
-            itemStats.add(it.itemStats)
             bid()
         }
 
@@ -66,67 +69,42 @@ class BidderAgent02(private val id: String) : Agent(overrideName = id) {
 
     }
 
-    private fun getMedian(item: Item): Double {
-        var sum = 0.0
-        for (digest in itemStats) {
-            sum += digest.get(item)?.median ?: 0.0
-        }
-        return (sum / itemStats.size)
-    }
-
-    private fun maxPrice(number: Int): Double {
-        return (fib(number + 1).toDouble())
-    }
-
-    private fun minValue(number: Int):Double {
-        return fib(number).toDouble()
-    }
-
-    private fun getPrice(item:  MutableMap.MutableEntry<Item, Int>): Double? {
-        //ich möchte den Gewinn maximieren, egal ob per Geld oder Items. Niemals ins negative gehen
-        if (!itemStats.isEmpty()) {
-            val median = getMedian(item.key)
-            val maxPrice = maxPrice(item.value)
-            val minValue = minValue(item.value)
-            log.info(median.toString())
-            if (maxPrice > median) {
-                // kaufen --> Median möchte ich senken, aber noch das Item bekommen
-                val newPrice = median + epsilon
-                return if (newPrice >= minValue) newPrice
-                else null
-            } else if (maxPrice == median) {
-                //mache auf alle Fälle Gewinn >= 0
-                //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
-                // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
-                //median == maxPrice -> Gewinn = 0
-                return if (maxPrice >= minValue) maxPrice
-                else null
-            } else {
-                //verkaufen --> Median erhöhen, aber noch das Item verkaufen
-                val newPrice = median - epsilon
-                return if (newPrice >= minValue) newPrice
-                else null
-            }
-        } else {
-            return maxPrice(item.value)
-        }
-    }
-
     private fun bid() {
         val ref = system.resolve(auctioneer)
         if (wallet != null) {
-            for (item in wallet!!.items) {
-                if (item.value == 0) continue
-                val optimalPrice = getPrice(item)
-                if (optimalPrice != null && optimalPrice <= wallet!!.credits) {
-                    ref invoke ask<Boolean>(Offer(id, secret, item.key, optimalPrice)) { res ->
+            if (maxItem == -1){
+                maxItem = getMaxValueItem()
+                for (item in wallet!!.items) {
+                    if (item.value == 0 || item.key.type == maxItem) continue
+                    ref invoke ask<CashInResult>(CashIn(id, secret, item.key, item.value)) { res ->
+                        log.info("cash in: " + res.price*item.value)
+                        wallet!!.update(item.key, -item.value, res.price*item.value)
+
+                    }
+                }
+            } else {
+                for (item in wallet!!.items) {
+                    if (item.value == 0) continue
+                    if (item.value > 0 && item.key.type != maxItem) {
+                        ref invoke ask<CashInResult>(CashIn(id, secret, item.key, item.value)) { res ->
+                            log.info("cash in: " + res.price*item.value)
+                            wallet!!.update(item.key, -item.value, res.price*item.value)
+
+                        }
+                    } else {
+                        val optimalPrice = fib(item.value + 5)
+                        if (optimalPrice <= wallet!!.credits) {
+                            ref invoke ask<Boolean>(Offer(id, secret, item.key, optimalPrice.toDouble())) { res ->
+                            }
+                    }
                     }
                 }
             }
         }
     }
 
-    private fun getItemOfMinimalNumber(): Item? {
+    private fun getMaxValueItem(): Int {
+        // find Item with most value
         if (wallet != null) {
             var maxItem = Item(-1)
             var maxValue = -1
@@ -136,9 +114,10 @@ class BidderAgent02(private val id: String) : Agent(overrideName = id) {
                     maxValue = item.value
                 }
             }
-            return maxItem
+            log.info("BidderAgent09 hat " + maxItem.type + " am häufigsten")
+            return maxItem.type
         }
-        return null
+        return 0
     }
 
 }

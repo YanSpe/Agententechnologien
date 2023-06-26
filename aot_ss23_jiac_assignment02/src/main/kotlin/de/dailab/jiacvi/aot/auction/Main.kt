@@ -2,17 +2,18 @@ package de.dailab.jiacvi.aot.auction
 
 import de.dailab.jiacvi.communication.LocalBroker
 import de.dailab.jiacvi.dsl.agentSystem
-import de.dailab.jiacvi.aot.auction.myBidder.DummyBidderAgent
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent01
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent02
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent03
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent04
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent05
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent06
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent07
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent08
-import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent09
-
+import de.dailab.jiacvi.aot.auction.myBidder.DummyAgent
+import de.dailab.jiacvi.aot.auction.myBidder.MaxTypeAgent
+import de.dailab.jiacvi.aot.auction.myBidder.MedianAgent01
+import de.dailab.jiacvi.aot.auction.myBidder.MedianAgent02
+import de.dailab.jiacvi.aot.auction.myBidder.MedianAgent03
+import de.dailab.jiacvi.aot.auction.myBidder.BangForBuckAgent01
+import de.dailab.jiacvi.aot.auction.myBidder.BangForBuckAgent02
+import de.dailab.jiacvi.aot.auction.myBidder.LookingForAgent01
+import de.dailab.jiacvi.aot.auction.myBidder.LookingForAgent02
+import de.dailab.jiacvi.aot.auction.myBidder.LookingForAgent03
+import de.dailab.jiacvi.aot.auction.myBidder.ShortSellingAgent01
+import de.dailab.jiacvi.aot.auction.myBidder.ShortSellingAgent02
 
 fun main() {
     agentSystem("Auction") {
@@ -22,16 +23,18 @@ fun main() {
             add(AuctioneerAgent(25,
                 5, 1))
             for (i in (1..1)) {
-                add(DummyBidderAgent("dummy-$i"))
-                add(BidderAgent01("BidderAgent01"))
-                add(BidderAgent02("BidderAgent02"))
-                add(BidderAgent03("BidderAgent03"))
-                add(BidderAgent04("BidderAgent04"))
-                add(BidderAgent05("BidderAgent05"))
-                add(BidderAgent06("BidderAgent06"))
-                add(BidderAgent07("BidderAgent07"))
-                add(BidderAgent08("BidderAgent08"))
-                add(BidderAgent09("BidderAgent09"))
+                add(DummyAgent("dummy-$i"))
+                add(MaxTypeAgent("MaxTypeAgent"))
+                add(MedianAgent01("MedianAgent01"))
+                add(MedianAgent02("MedianAgent02"))
+                add(MedianAgent03("MedianAgent03"))
+                add(BangForBuckAgent01("BangForBuckAgent01"))
+                add(BangForBuckAgent02("BangForBuckAgent02"))
+                add(LookingForAgent01("LookingForAgent01"))
+                add(LookingForAgent02("LookingForAgent02"))
+                add(LookingForAgent03("LookingForAgent03"))
+                add(ShortSellingAgent01("ShortSellingAgent01"))
+                add(ShortSellingAgent02("ShortSellingAgent02"))
             }
         }
     }.start()

@@ -7,7 +7,7 @@ import de.dailab.jiacvi.behaviour.act
 import kotlin.math.pow
 import kotlin.system.exitProcess
 
-class BidderAgent05(private val id: String) : Agent(overrideName = id) {
+class LookingForAgent02(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
     private var itemStats: ArrayList<Map<Item, Stats>> = ArrayList()
@@ -140,7 +140,7 @@ class BidderAgent05(private val id: String) : Agent(overrideName = id) {
             for (item in wallet!!.items) {
                 if (item.value == 0) continue
                 val optimalPrice = getPrice(item)
-                if (optimalPrice != null && optimalPrice <= wallet!!.credits) {
+                if ((optimalPrice != null) && (optimalPrice <= wallet!!.credits)) {
                     ref invoke ask<Boolean>(Offer(id, secret, item.key, optimalPrice)) { res ->
                     }
                 }

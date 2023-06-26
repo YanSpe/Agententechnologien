@@ -9,14 +9,13 @@ import kotlin.system.exitProcess
 /**
  * This is a simple stub of the Bidder Agent. You can use this as a template to start your implementation.
  */
-class BidderAgent09(private val id: String) : Agent(overrideName = id) {
+class DummyAgent(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
 
     // keep track of the bidder agent's own wallet
     private var wallet: Wallet? = null
     private var secret: Int = -1
-    private var maxItem: Int = -1
 
     override fun behaviour() = act {
         // easy - Bidder Agent.
@@ -72,39 +71,19 @@ class BidderAgent09(private val id: String) : Agent(overrideName = id) {
     private fun bid() {
         val ref = system.resolve(auctioneer)
         if (wallet != null) {
-            if (maxItem == -1){
-                maxItem = getMaxValueItem()
-                for (item in wallet!!.items) {
-                    if (item.value == 0 || item.key.type == maxItem) continue
-                    ref invoke ask<CashInResult>(CashIn(id, secret, item.key, item.value)) { res ->
-                        log.info("cash in: " + res.price*item.value)
-                        wallet!!.update(item.key, -item.value, res.price*item.value)
-
-                    }
-                }
-            } else {
-                for (item in wallet!!.items) {
-                    if (item.value == 0) continue
-                    if (item.value > 0 && item.key.type != maxItem) {
-                        ref invoke ask<CashInResult>(CashIn(id, secret, item.key, item.value)) { res ->
-                            log.info("cash in: " + res.price*item.value)
-                            wallet!!.update(item.key, -item.value, res.price*item.value)
-
-                        }
-                    } else {
-                        val optimalPrice = fib(item.value + 5)
-                        if (optimalPrice <= wallet!!.credits) {
-                            ref invoke ask<Boolean>(Offer(id, secret, item.key, optimalPrice.toDouble())) { res ->
-                            }
-                    }
+            for (item in wallet!!.items) {
+                if (item.value == 0) continue
+                val optimalPrice = fib(item.value + 1) - fib(item.value)
+                //val optimalPrice = fib(item.value)
+                if (optimalPrice <= wallet!!.credits) {
+                    ref invoke ask<Boolean>(Offer(id, secret, item.key, optimalPrice.toDouble())) { res ->
                     }
                 }
             }
         }
     }
 
-    private fun getMaxValueItem(): Int {
-        // find Item with most value
+    private fun getItemOfMinimalNumber(): Item? {
         if (wallet != null) {
             var maxItem = Item(-1)
             var maxValue = -1
@@ -114,10 +93,9 @@ class BidderAgent09(private val id: String) : Agent(overrideName = id) {
                     maxValue = item.value
                 }
             }
-            log.info("BidderAgent09 hat " + maxItem.type + " am häufigsten")
-            return maxItem.type
+            return maxItem
         }
-        return 0
+        return null
     }
 
 }

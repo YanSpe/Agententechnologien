@@ -4,17 +4,15 @@ import de.dailab.jiacvi.aot.auction.*
 import de.dailab.jiacvi.Agent
 import de.dailab.jiacvi.BrokerAgentRef
 import de.dailab.jiacvi.behaviour.act
-import kotlin.math.pow
 import kotlin.system.exitProcess
 
-class BidderAgent04(private val id: String) : Agent(overrideName = id) {
+class BangForBuckAgent01(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
     private var itemStats: ArrayList<Map<Item, Stats>> = ArrayList()
     // keep track of the bidder agent's own wallet
     private var wallet: Wallet? = null
     private var secret: Int = -1
-    private var lookingFors: Array<ArrayList<Price>> = Array<ArrayList<Price>>(100) { ArrayList<Price>() }
 
     override fun behaviour() = act {
 
@@ -45,21 +43,18 @@ class BidderAgent04(private val id: String) : Agent(overrideName = id) {
                 Transfer.BOUGHT -> wallet?.update(it.item, +1, -it.price)
                 else -> {}
             }
+
         }
 
-        // save digest
         listen<Digest>(biddersTopic) {
-            log.debug("Received Digest: {}", it)
+            log.debug("Received Digest: $it")
             itemStats.add(it.itemStats)
             log.info(itemStats.size.toString())
-            lookingFor()
             bid()
         }
 
-        // save LookingFors
         listen<LookingFor>(biddersTopic) {
-            log.debug("Received LookingFor: {}", it)
-            lookingFors[it.item.type].add(it.price)
+            log.debug("Received LookingFor: $it")
         }
 
         // be notified of result of the entire auction
@@ -68,6 +63,7 @@ class BidderAgent04(private val id: String) : Agent(overrideName = id) {
             wallet = null
             exitProcess(0)
         }
+
     }
 
     private fun getMedian(item: Item): Double {
@@ -75,19 +71,16 @@ class BidderAgent04(private val id: String) : Agent(overrideName = id) {
         for (digest in itemStats) {
             sum += digest.get(item)?.median ?: 0.0
         }
-        for (p in lookingFors[item.type]) {
-            sum += p
-        }
-        return (sum / (itemStats.size + lookingFors[item.type].size))
+        return (sum / itemStats.size)
     }
 
     private fun getVarianz(item: Item, median: Double): Double {
         var varianz = 0.0
         //log.info("varianz aus " + "median: " + median + " und stats: " + itemStats + " für item: " + item)
         for (digest in itemStats) {
-            val newMedian = digest[item]?.median
+            val newMedian = digest.get(item)?.median
             if (newMedian == null) continue
-            val pow = (newMedian - median).pow(2.0)
+            val pow = Math.pow((newMedian - median), 2.0)
             varianz += pow * (1/itemStats.size)
         }
         return varianz
@@ -97,36 +90,34 @@ class BidderAgent04(private val id: String) : Agent(overrideName = id) {
         return (fib(number + 1).toDouble())
     }
 
-    private fun minPrice(number: Int):Double {
+    private fun minValue(number: Int):Double {
         return fib(number).toDouble()
     }
 
     private fun getPrice(item:  MutableMap.MutableEntry<Item, Int>): Double? {
         //ich möchte den Gewinn maximieren, egal ob per Geld oder Items. Niemals ins negative gehen
         if (!itemStats.isEmpty()) {
-            val minPrice = minPrice(item.value)
-            val maxPrice = maxPrice(item.value)
             val median = getMedian(item.key)
+            val maxPrice = maxPrice(item.value)
+            val minValue = minValue(item.value)
             val varianz = getVarianz(item.key, median)
+            val ratio =  maxPrice / median
 
-            if (maxPrice > median) {
+            if (maxPrice >= median) {
                 // kaufen --> Median möchte ich senken, aber noch das Item bekommen
-                val newPrice = median + varianz
-                return if (newPrice >= minPrice) newPrice
-                else null
-
-            } else if (maxPrice == median) {
-                //mache auf alle Fälle Gewinn >= 0
-                //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
-                // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
-                //median == maxPrice -> Gewinn = 0
-                return if (maxPrice >= minPrice) maxPrice
-                else null
-
+                if (varianz == 0.0) {
+                    val newPrice = (median + maxPrice)/2
+                    return if (newPrice >= minValue) newPrice
+                    else null
+                } else {
+                    val newPrice = median + varianz * ratio
+                    return if (newPrice >= minValue) newPrice
+                    else null
+                }
             } else {
                 //verkaufen --> Median erhöhen, aber noch das Item verkaufen
                 val newPrice = median - varianz
-                return if (newPrice >= minPrice) newPrice
+                return if (newPrice >= minValue) newPrice
                 else null
             }
         } else {
@@ -148,8 +139,7 @@ class BidderAgent04(private val id: String) : Agent(overrideName = id) {
         }
     }
 
-    private fun lookingFor() {
-        // find Item with most value
+    private fun getItemOfMinimalNumber(): Item? {
         if (wallet != null) {
             var maxItem = Item(-1)
             var maxValue = -1
@@ -159,10 +149,9 @@ class BidderAgent04(private val id: String) : Agent(overrideName = id) {
                     maxValue = item.value
                 }
             }
-            // send LookingFor
-            log.info("Sending LookingFor to '$biddersTopic' topic")
-            broker.publish(biddersTopic, LookingFor(maxItem, maxPrice(maxValue)) )
+            return maxItem
         }
+        return null
     }
 
 }
