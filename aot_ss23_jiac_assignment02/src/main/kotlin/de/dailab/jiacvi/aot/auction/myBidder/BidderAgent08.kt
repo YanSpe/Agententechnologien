@@ -118,36 +118,59 @@ class BidderAgent08(private val id: String) : Agent(overrideName = id) {
         if (!itemStats.isEmpty()) {
             val minPrice : Double
             val maxPrice : Double
-            if (shortSelling){
-                minPrice = minShortPrice(item.value)
-                maxPrice = maxShortPrice(item.value)
-            } else {
-                minPrice = minPrice(item.value)
-                maxPrice = maxPrice(item.value)
-            }
             val median = getMedian(item.key)
             val varianz = getVarianz(item.key, median)
 
-            if (maxPrice > median) {
-                // kaufen --> Median möchte ich senken, aber noch das Item bekommen
-                val newPrice = median + varianz
-                return if (newPrice >= minPrice) newPrice
-                else null
+            if (shortSelling){
+                minPrice = minShortPrice(item.value)
+                maxPrice = maxShortPrice(item.value)
 
-            } else if (maxPrice == median) {
-                //mache auf alle Fälle Gewinn >= 0
-                //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
-                // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
-                //median == maxPrice -> Gewinn = 0
-                return if (maxPrice >= minPrice) maxPrice
-                else null
+                if (maxPrice > median) {
+                    // kaufen --> Median möchte ich senken, aber noch das Item bekommen
+                    val newPrice = median + varianz
+                    return if (newPrice >= minPrice) newPrice
+                    else null
 
+                } else if (maxPrice == median) {
+                    //mache auf alle Fälle Gewinn >= 0
+                    //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
+                    // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
+                    //median == maxPrice -> Gewinn = 0
+                    return if (maxPrice >= minPrice) maxPrice
+                    else null
+
+                } else {
+                    //verkaufen --> Median erhöhen, aber noch das Item verkaufen
+                    val newPrice = median - varianz
+                    return if (newPrice >= minPrice) newPrice
+                    else null
+                }
             } else {
-                //verkaufen --> Median erhöhen, aber noch das Item verkaufen
-                val newPrice = median - varianz
-                return if (newPrice >= minPrice) newPrice
-                else null
+                minPrice = minPrice(item.value)
+                maxPrice = maxPrice(item.value)
+
+                if (maxPrice > median) {
+                    // kaufen --> Median möchte ich senken, aber noch das Item bekommen
+                    val newPrice = median + varianz
+                    return if (newPrice >= minPrice) newPrice
+                    else null
+
+                } else if (maxPrice == median) {
+                    //mache auf alle Fälle Gewinn >= 0
+                    //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
+                    // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
+                    //median == maxPrice -> Gewinn = 0
+                    return if (maxPrice >= minPrice) maxPrice
+                    else null
+
+                } else {
+                    //verkaufen --> Median erhöhen, aber noch das Item verkaufen
+                    val newPrice = median - varianz
+                    return if (newPrice >= minPrice) newPrice
+                    else null
+                }
             }
+
         } else {
             return maxPrice(item.value)
         }

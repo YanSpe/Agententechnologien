@@ -9,6 +9,9 @@ import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent03
 import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent04
 import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent05
 import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent06
+import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent07
+import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent08
+import de.dailab.jiacvi.aot.auction.myBidder.BidderAgent09
 
 
 fun main() {
@@ -26,6 +29,9 @@ fun main() {
                 add(BidderAgent04("BidderAgent04"))
                 add(BidderAgent05("BidderAgent05"))
                 add(BidderAgent06("BidderAgent06"))
+                add(BidderAgent07("BidderAgent07"))
+                add(BidderAgent08("BidderAgent08"))
+                add(BidderAgent09("BidderAgent09"))
             }
         }
     }.start()
