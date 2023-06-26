@@ -7,7 +7,7 @@ import de.dailab.jiacvi.behaviour.act
 import kotlin.math.pow
 import kotlin.system.exitProcess
 
-class BidderAgent06(private val id: String) : Agent(overrideName = id) {
+class BidderAgent04(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
     private var itemStats: ArrayList<Map<Item, Stats>> = ArrayList()
@@ -49,7 +49,7 @@ class BidderAgent06(private val id: String) : Agent(overrideName = id) {
 
         // save digest
         listen<Digest>(biddersTopic) {
-            log.debug("Received Digest: $it")
+            log.debug("Received Digest: {}", it)
             itemStats.add(it.itemStats)
             log.info(itemStats.size.toString())
             lookingFor()
@@ -58,7 +58,7 @@ class BidderAgent06(private val id: String) : Agent(overrideName = id) {
 
         // save LookingFors
         listen<LookingFor>(biddersTopic) {
-            log.debug("Received LookingFor: $it")
+            log.debug("Received LookingFor: {}", it)
             lookingFors[it.item.type].add(it.price)
         }
 
@@ -75,14 +75,10 @@ class BidderAgent06(private val id: String) : Agent(overrideName = id) {
         for (digest in itemStats) {
             sum += digest.get(item)?.median ?: 0.0
         }
-        if (lookingFors[item.type] != null) {
-            for (p in lookingFors[item.type]!!) {
-                if (p != null) {
-                    sum += p
-                }
-            }
+        for (p in lookingFors[item.type]) {
+            sum += p
         }
-        return (sum / (itemStats.size + (lookingFors[item.type]?.size ?: 0)))
+        return (sum / (itemStats.size + lookingFors[item.type].size))
     }
 
     private fun getVarianz(item: Item, median: Double): Double {
@@ -109,14 +105,7 @@ class BidderAgent06(private val id: String) : Agent(overrideName = id) {
         //ich möchte den Gewinn maximieren, egal ob per Geld oder Items. Niemals ins negative gehen
         if (!itemStats.isEmpty()) {
             val minPrice = minPrice(item.value)
-
-            var maxPrice = 0.0
-            // wenn über 1/3 der Bidder dieses Item sammeln --> eigene Value verkleinern
-            if (lookingFors[item.key.type].size >= 0.3 * itemStats.size) {
-                maxPrice = maxPrice(item.value - 1)
-            }
-            else maxPrice = maxPrice(item.value)
-
+            val maxPrice = maxPrice(item.value)
             val median = getMedian(item.key)
             val varianz = getVarianz(item.key, median)
 
@@ -159,21 +148,6 @@ class BidderAgent06(private val id: String) : Agent(overrideName = id) {
         }
     }
 
-    private fun getItemOfMinimalNumber(): Item? {
-        if (wallet != null) {
-            var maxItem = Item(-1)
-            var maxValue = -1
-            for (item in wallet!!.items) {
-                if (item.value > maxValue) {
-                    maxItem = item.key
-                    maxValue = item.value
-                }
-            }
-            return maxItem
-        }
-        return null
-    }
-
     private fun lookingFor() {
         // find Item with most value
         if (wallet != null) {
@@ -185,11 +159,9 @@ class BidderAgent06(private val id: String) : Agent(overrideName = id) {
                     maxValue = item.value
                 }
             }
-            var i = maxPrice(maxValue)
             // send LookingFor
             log.info("Sending LookingFor to '$biddersTopic' topic")
-            //log.debug("LookingFor:$maxItem,$maxValue, $i")
-            broker.publish(biddersTopic, LookingFor(maxItem, (0.6 * maxPrice(maxValue))) )
+            broker.publish(biddersTopic, LookingFor(maxItem, maxPrice(maxValue)) )
         }
     }
 
