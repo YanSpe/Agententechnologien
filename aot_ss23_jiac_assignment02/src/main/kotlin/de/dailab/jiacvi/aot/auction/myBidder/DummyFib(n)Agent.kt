@@ -9,7 +9,7 @@ import kotlin.system.exitProcess
 /**
  * This is a simple stub of the Bidder Agent. You can use this as a template to start your implementation.
  */
-class DummyAgent(private val id: String) : Agent(overrideName = id) {
+class `DummyFib(n)Agent`(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
 
@@ -73,7 +73,7 @@ class DummyAgent(private val id: String) : Agent(overrideName = id) {
         if (wallet != null) {
             for (item in wallet!!.items) {
                 if (item.value == 0) continue
-                val optimalPrice = fib(item.value + 1) - fib(item.value)
+                val optimalPrice = fib(item.value)
                 //val optimalPrice = fib(item.value)
                 if (optimalPrice <= wallet!!.credits) {
                     ref invoke ask<Boolean>(Offer(id, secret, item.key, optimalPrice.toDouble())) { res ->
