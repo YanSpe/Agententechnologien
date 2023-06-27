@@ -13,9 +13,10 @@ import de.dailab.jiacvi.aot.auction.myBidder.ShortSellingAgent01
 import de.dailab.jiacvi.aot.auction.myBidder.ShortSellingAgent02
 import de.dailab.jiacvi.aot.auction.myBidder.LookingForAgent01
 import de.dailab.jiacvi.aot.auction.myBidder.LookingForAgent02
-import de.dailab.jiacvi.aot.auction.myBidder.LookingForAgent03
+import de.dailab.jiacvi.aot.auction.myBidder.MaxValueAgent
 import de.dailab.jiacvi.aot.auction.myBidder.DummyBetweenAgent
 import de.dailab.jiacvi.aot.auction.myBidder.`DummyFib(n)Agent`
+import de.dailab.jiacvi.aot.auction.myBidder.FinalAgent
 
 fun main() {
     agentSystem("Auction") {
@@ -34,11 +35,12 @@ fun main() {
                 add(BangForBuckAgent02("BangForBuckAgent02"))
                 add(LookingForAgent01("LookingForAgent01"))
                 add(LookingForAgent02("LookingForAgent02"))
-                add(LookingForAgent03("LookingForAgent03"))
+                add(MaxValueAgent("LookingForAgent03"))
                 add(ShortSellingAgent01("ShortSellingAgent01"))
                 add(ShortSellingAgent02("ShortSellingAgent02"))
                 add(DummyBetweenAgent("AlwaysInTheMiddleAgent"))
                 add(`DummyFib(n)Agent`("fib(n)Agent"))
+                add(FinalAgent("FinalAgent"))
             }
         }
     }.start()

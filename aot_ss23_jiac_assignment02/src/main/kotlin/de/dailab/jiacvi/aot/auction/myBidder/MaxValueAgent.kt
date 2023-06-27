@@ -7,7 +7,7 @@ import de.dailab.jiacvi.behaviour.act
 import kotlin.math.pow
 import kotlin.system.exitProcess
 
-class LookingForAgent03(private val id: String) : Agent(overrideName = id) {
+class MaxValueAgent(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
     private var itemStats: ArrayList<Map<Item, Stats>> = ArrayList()
@@ -102,7 +102,7 @@ class LookingForAgent03(private val id: String) : Agent(overrideName = id) {
     }
 
     private fun getPrice(item:  MutableMap.MutableEntry<Item, Int>): Double? {
-        if (!itemStats.isEmpty()) {
+        if (itemStats.isNotEmpty()) {
             val minPrice = minPrice(item.value)
             val maxPrice = maxPrice(item.value)
             val median = getMedian(item.key)
