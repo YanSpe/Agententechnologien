@@ -181,7 +181,7 @@ class ShortSellingAgent02(private val id: String) : Agent(overrideName = id) {
         if (wallet != null) {
             for (item in wallet!!.items) {
                 var optimalPrice : Double?
-                if (item.value == 0) {
+                if (item.value <= 0) {
                     optimalPrice = getPrice(item, true)
                 } else {
                     optimalPrice = getPrice(item, false)
