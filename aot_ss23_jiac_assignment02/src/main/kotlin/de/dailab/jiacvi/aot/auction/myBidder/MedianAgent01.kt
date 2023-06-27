@@ -10,6 +10,7 @@ class MedianAgent01(private val id: String) : Agent(overrideName = id) {
     // you can use the broker to broadcast messages i.e. broker.publish(biddersTopic, LookingFor(...))
     private val broker by resolve<BrokerAgentRef>()
     private var itemStats: Map<Item, Stats>? = null
+
     // keep track of the bidder agent's own wallet
     private var wallet: Wallet? = null
     private var secret: Int = -1
@@ -70,35 +71,37 @@ class MedianAgent01(private val id: String) : Agent(overrideName = id) {
         return (fib(number + 1).toDouble())
     }
 
-    private fun minValue(number: Int):Double {
+    private fun minValue(number: Int): Double {
         return fib(number).toDouble()
     }
 
-    private fun getPrice(item:  MutableMap.MutableEntry<Item, Int>): Double? {
+    private fun getPrice(item: MutableMap.MutableEntry<Item, Int>): Double? {
         //ich möchte den Gewinn maximieren, egal ob per Geld oder Items. Niemals ins negative gehen
         if (itemStats != null && !itemStats!!.isEmpty()) {
-            val stats = itemStats!!.get(item.key)
+            val stats = itemStats!![item.key]
             val maxPrice = maxPrice(item.value)
             val minValue = minValue(item.value)
-
-            if (maxPrice > stats!!.median) {
-                // kaufen --> Median möchte ich senken, aber noch das Item bekommen
-                val newPrice = stats.median + epsilon
-                return if (newPrice >= minValue) newPrice
-                else null
-            } else if (maxPrice == stats.median) {
-                //mache auf alle Fälle Gewinn >= 0
-                //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
-                // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
-                //median == maxPrice -> Gewinn = 0
-                return if (maxPrice >= minValue) maxPrice
-                else null
-            } else {
-                //verkaufen --> Median erhöhen, aber noch das Item verkaufen
-                val newPrice = stats.median - epsilon
-                return if (newPrice >= minValue) newPrice
-                else null
+            if (stats != null) {
+                if (maxPrice > stats.median) {
+                    // kaufen --> Median möchte ich senken, aber noch das Item bekommen
+                    val newPrice = stats.median + epsilon
+                    return if (newPrice >= minValue) newPrice
+                    else null
+                } else if (maxPrice == stats.median) {
+                    //mache auf alle Fälle Gewinn >= 0
+                    //verkaufen --> median > maxprice > minValue --> Gewinn: median - minValue
+                    // kaufen --> median < maxPrice --> Gewinn: maxPrice - median
+                    //median == maxPrice -> Gewinn = 0
+                    return if (maxPrice >= minValue) maxPrice
+                    else null
+                } else {
+                    //verkaufen --> Median erhöhen, aber noch das Item verkaufen
+                    val newPrice = stats.median - epsilon
+                    return if (newPrice >= minValue) newPrice
+                    else null
+                }
             }
+            return maxPrice;
         } else {
             return maxPrice(item.value)
         }
