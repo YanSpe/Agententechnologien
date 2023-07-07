@@ -3,6 +3,7 @@ package de.dailab.jiacvi.aot.gridworld.myAgents
 import de.dailab.jiacvi.Agent
 import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
+import kotlin.system.exitProcess
 
 class SetupAgent (private val setupID: String): Agent(overrideName=setupID) {
 
@@ -34,6 +35,7 @@ class SetupAgent (private val setupID: String): Agent(overrideName=setupID) {
 
         on<EndGameMessage> {
             log.info("Received $it")
+            exitProcess(0)
         }
     }
 }
