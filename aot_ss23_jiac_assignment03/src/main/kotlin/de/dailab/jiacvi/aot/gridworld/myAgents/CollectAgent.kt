@@ -191,6 +191,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                 system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true)) {
                     if (it.accepted) {
                         meetingPosition = bestMessage.meetingPosition
+                        //TODO: move to position
                     } else {
                         //TODO: vielleicht bessere Fehlerbehandlung möglich
                         doCNP()
