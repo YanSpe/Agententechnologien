@@ -86,12 +86,6 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         //}
         return repairPoints.sortedBy { calculateDistance(position, it) }.first()
     }
-
-    private fun calculateDistance(start: Position, end: Position): Int {
-        val dx = kotlin.math.abs(start.x - end.x)
-        val dy = kotlin.math.abs(start.y - end.y)
-        return dx + dy
-    }
     class Node(val position: Position, var gCost: Int, var hCost: Int, var parent: Node? = null) {
         val fCost: Int
             get() = gCost + hCost

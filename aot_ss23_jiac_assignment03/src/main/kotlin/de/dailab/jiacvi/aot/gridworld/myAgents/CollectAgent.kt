@@ -1,8 +1,11 @@
 package de.dailab.jiacvi.aot.gridworld.myAgents
 
 import de.dailab.jiacvi.Agent
+import de.dailab.jiacvi.BrokerAgentRef
 import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
+import java.util.Timer
+import kotlin.concurrent.schedule
 import kotlin.random.Random
 
 class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: List<Position>, size: Position) :
@@ -19,11 +22,21 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     val obstacles = obstacles
     val repairPoints = repairPoints
     val size = size
-    val knownMaterial: ArrayList<Position> = ArrayList()
+    var knownMaterial: ArrayList<Position> = ArrayList()
+    var meetingPosition: Position? = null
+    private val msgBroker by resolve<BrokerAgentRef>()
+    var myPosition: Position = Position(0, 0)
+    var repairAgentId: String? = null
+    var cnpResponses: ArrayList<CNPResponse> = ArrayList()
 
     override fun behaviour() = act {
         on<CurrentPosition> { message ->
+            myPosition = message.position
             doTurn(message.position, message.vision)
+        }
+
+        on<CNPResponse> { message ->
+            cnpResponses.add(message)
         }
     }
 
@@ -44,7 +57,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                 }
             }
         } else if (hasMaterial) {
-            //CNP
+            meetAndFindRepairAgent()
             log.info(collectID + " should do CNP now")
         } else {
             doMove(position, vision)
@@ -90,7 +103,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         if (currentPosition.y - 1 >= 0) positions.add(Position(currentPosition.x, currentPosition.y - 1))
 
         for (position in positions) {
-            if(repairPoints.contains(position) ){
+            if (repairPoints.contains(position)) {
                 positions.remove(position)
                 continue
             }
@@ -157,6 +170,55 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                 considerActionFlags(it, position, vision)
             }
         }
+    }
+
+    private fun meetAndFindRepairAgent() {
+        if (meetingPosition == null) {
+            doCNP()
+        } else if (meetingPosition != myPosition) {
+            // move to position
+        } else {
+            // transfer material
+        }
+    }
+
+    private fun doCNP() {
+        msgBroker.publish(CNP_TOPIC, CNPRequest(collectID, myPosition))
+
+        Timer().schedule(100) {
+            val bestMessage = getBestMeetingPoint()
+            if (bestMessage != null) {
+                system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true)) {
+                    if (it.accepted) {
+                        meetingPosition = bestMessage.meetingPosition
+                    } else {
+                        //TODO: vielleicht bessere Fehlerbehandlung möglich
+                        doCNP()
+                        log.info(collectID + ": repairAgent rejected")
+                    }
+                }
+            } else {
+                log.info(collectID + ": error no messages")
+            }
+        }
+    }
+
+    private fun getBestMeetingPoint(): CNPResponse? {
+        var bestCNPResponse: CNPResponse? = null
+        var bestVal: Int = -1
+        for (response in cnpResponses) {
+            if (bestCNPResponse == null) {
+                bestCNPResponse = response
+                bestVal = calculateDistance(myPosition, response.meetingPosition)
+            } else {
+                val newVal = calculateDistance(myPosition, response.meetingPosition)
+                if (newVal < bestVal) {
+                    bestVal = newVal
+                    bestCNPResponse = response
+                }
+            }
+        }
+        return bestCNPResponse
     }
 
 }

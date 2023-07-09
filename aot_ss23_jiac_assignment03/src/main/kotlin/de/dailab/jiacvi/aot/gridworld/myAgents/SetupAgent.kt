@@ -39,3 +39,16 @@ class SetupAgent (private val setupID: String): Agent(overrideName=setupID) {
         }
     }
 }
+
+data class CNPRequest(val collectAgentId: String, val workerPosition: Position)
+data class CNPResponse(val repairAgentId: String, val meetingPosition: Position)
+data class AcceptRejectCNP(val accepted: Boolean)
+data class InformCancelCNP(val accepted: Boolean)
+
+const val CNP_TOPIC = "cnp"
+
+fun calculateDistance(start: Position, end: Position): Int {
+    val dx = kotlin.math.abs(start.x - end.x)
+    val dy = kotlin.math.abs(start.y - end.y)
+    return dx + dy
+}
