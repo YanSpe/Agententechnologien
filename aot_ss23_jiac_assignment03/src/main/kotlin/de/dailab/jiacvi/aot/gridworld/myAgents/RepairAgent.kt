@@ -33,8 +33,8 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
 
         // CNPmessage needs to be implemented
         listen<CNPRequest>(CNP_TOPIC){ message ->
+            log.info(repairID + ": received CNP Request")
             doCNP(message.collectAgentId, message.workerPosition)
-            log.info(repairID + " received CNP Request")
         }
 
         listen<RepairPointsUpdate>(Repair_Points){ message ->
@@ -95,6 +95,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
 
         system.resolve(collectAgentId) invoke ask<AcceptRejectCNP>(CNPResponse(repairID, meetingPosition)){
             message ->
+            log.info(repairID + ": got CNP-Response " + message)
             if (message.accepted){
                 CNPactive = true
                 CNPmeetingPoint = meetingPosition

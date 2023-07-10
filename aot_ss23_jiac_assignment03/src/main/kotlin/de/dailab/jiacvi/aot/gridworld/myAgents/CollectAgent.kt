@@ -13,10 +13,7 @@ import kotlin.random.Random
 class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: List<Position>, size: Position) :
     Agent(overrideName = collectID) {
     /* TODO
-        - this WorkerAgent has the ability to collect material
-        - NOTE: can not walk on open repairpoints, can not drop material
-        - find material, collect it, start a cnp instance
-        - once your cnp is done, meet the RepairAgents and transfer the material
+        - wenn kein Material vorhanden ist, dann bleibt der Agent auf der Position stehen und sucht nicht weiter
      */
     var hasMaterial: Boolean = false
     var standsOnMaterial: Boolean = false
@@ -293,11 +290,13 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     private fun doCNP() {
         msgBroker.publish(CNP_TOPIC, CNPRequest(collectID, myPosition))
 
-        Timer().schedule(100) {
+        Timer().schedule(50) {
+            log.info(collectID + ": Timer ended; is Working on Requests")
             val bestMessage = getBestMeetingPoint()
             if (bestMessage != null) {
                 for (message in cnpResponses) {
                     if (message == bestMessage) {
+                        log.info(collectID + ": accepted " + message)
                         system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true)) {
                             if (it.accepted) {
                                 meetingPosition = bestMessage.meetingPosition
