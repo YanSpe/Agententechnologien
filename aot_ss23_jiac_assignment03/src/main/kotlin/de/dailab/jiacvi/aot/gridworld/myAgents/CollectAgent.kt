@@ -188,16 +188,24 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         Timer().schedule(100) {
             val bestMessage = getBestMeetingPoint()
             if (bestMessage != null) {
-                system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true)) {
-                    if (it.accepted) {
-                        meetingPosition = bestMessage.meetingPosition
-                        //TODO: move to position
+                for (message in cnpResponses) {
+                    if (message == bestMessage) {
+                        system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true)) {
+                            if (it.accepted) {
+                                meetingPosition = bestMessage.meetingPosition
+                                //TODO: move to position
+                            } else {
+                                //TODO: vielleicht bessere Fehlerbehandlung möglich
+                                doCNP()
+                                log.info(collectID + ": repairAgent rejected")
+                            }
+                        }
                     } else {
-                        //TODO: vielleicht bessere Fehlerbehandlung möglich
-                        doCNP()
-                        log.info(collectID + ": repairAgent rejected")
+                        //für alle anderen rejected Agenten
+                        system.resolve(message.repairAgentId) tell AcceptRejectCNP(false)
                     }
                 }
+
             } else {
                 log.info(collectID + ": error no messages")
             }
