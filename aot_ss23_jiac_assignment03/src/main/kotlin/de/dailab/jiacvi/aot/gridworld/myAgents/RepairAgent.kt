@@ -34,11 +34,13 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         // CNPmessage needs to be implemented
         listen<CNPRequest>(CNP_TOPIC){ message ->
             doCNP(message.collectAgentId, message.workerPosition)
+            log.info(repairID + " received CNP Request")
         }
 
         listen<RepairPointsUpdate>(Repair_Points){ message ->
             repairPoints = message.RepairPoints
             standsOnRepairPoint = repairPoints.contains(repairAgentPosition)
+            log.info(repairID + " received repair point update")
         }
 
         on<TransferInform> {message ->
@@ -83,6 +85,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         }
         else {
             // Move to Position depending on if CNP is active or not
+            log.info(repairID + " makes a move")
             doMove(position, vision)
         }
     }
@@ -126,12 +129,17 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         var nextPosition: Position? = null
         if(!hasMaterial && CNPactive) {
             nextPosition = getNextPosition(position, CNPmeetingPoint)
+            log.info(repairID + " goes towards meeting point")
         } else {
             var nearestRepairPoint: Position = getNearestRepairPoint(position)
+            log.info(repairID + " goes towards nearest repair point at position " + nearestRepairPoint)
+
             nextPosition = getNextPosition(position, nearestRepairPoint)
+            log.info(repairID + " goes next position: " + nextPosition)
         }
         if (nextPosition != null) {
             var nextAction = getActionForPosition(position, nextPosition)
+            log.info(repairID + " does action "+ nextAction)
 
             ref invoke ask<WorkerActionResponse>(WorkerActionRequest(repairID, nextAction)) {
                 if (!it.state) {
