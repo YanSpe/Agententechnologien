@@ -43,7 +43,12 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         }
 
         on<MaterialPositions> { message ->
-            materialPositions.add(message.position)
+            if (message.materialThere) {
+                materialPositions.add(message.position)
+            }
+            else {
+                materialPositions.remove(message.position)
+            }
         }
     }
 
