@@ -6,6 +6,8 @@ import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
 import java.util.Timer
 import kotlin.concurrent.schedule
+import kotlin.math.pow
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: List<Position>, size: Position) :
@@ -28,6 +30,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     var myPosition: Position = Position(0, 0)
     var repairAgentId: String? = null
     var cnpResponses: ArrayList<CNPResponse> = ArrayList()
+    var materialPositions: ArrayList<Position> = ArrayList()
 
     override fun behaviour() = act {
         on<CurrentPosition> { message ->
@@ -38,6 +41,10 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         on<CNPResponse> { message ->
             cnpResponses.add(message)
         }
+
+        on<MaterialPositions> { message ->
+            materialPositions.add(message.position)
+        }
     }
 
     private fun doTurn(position: Position, vision: List<Position>) {
@@ -47,6 +54,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             doMaterialMove(position, vision)
         } else if (standsOnMaterial && !hasMaterial) {
             log.info(collectID + " takes material")
+            msgBroker.publish(MATERIAL_TOPIC, MaterialPositions(position, true))
             ref invoke ask<WorkerActionResponse>(WorkerActionRequest(collectID, WorkerAction.TAKE)) {
                 if (it.state) {
                     hasMaterial = true
@@ -116,36 +124,122 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         return positions
     }
 
-    private fun getActionForPosition(myPosition: Position, nextPosition: Position): WorkerAction {
-        if (myPosition.x == nextPosition.x) {
-            if (nextPosition.y > myPosition.y) return WorkerAction.SOUTH
-            if (nextPosition.y < myPosition.y) return WorkerAction.NORTH
+    private fun getActionForPosition(currentPosition: Position, nextPosition: Position): WorkerAction {
+        if (currentPosition.x == nextPosition.x) {
+            if (nextPosition.y > currentPosition.y) return WorkerAction.SOUTH
+            if (nextPosition.y < currentPosition.y) return WorkerAction.NORTH
         }
-        if (myPosition.y == nextPosition.y) {
-            if (nextPosition.x > myPosition.x) return WorkerAction.EAST
-            if (nextPosition.x < myPosition.x) return WorkerAction.WEST
+        if (currentPosition.y == nextPosition.y) {
+            if (nextPosition.x > currentPosition.x) return WorkerAction.EAST
+            if (nextPosition.x < currentPosition.x) return WorkerAction.WEST
         }
-        if (myPosition.x > nextPosition.x && nextPosition.y > myPosition.y) return WorkerAction.SOUTHWEST
-        if (myPosition.x > nextPosition.x && nextPosition.y < myPosition.y) return WorkerAction.NORTHWEST
+        if (currentPosition.x > nextPosition.x && nextPosition.y > currentPosition.y) return WorkerAction.SOUTHWEST
+        if (currentPosition.x > nextPosition.x && nextPosition.y < currentPosition.y) return WorkerAction.NORTHWEST
 
-        if (myPosition.x < nextPosition.x && nextPosition.y > myPosition.y) return WorkerAction.SOUTHEAST
-        if (myPosition.x < nextPosition.x && nextPosition.y < myPosition.y) return WorkerAction.NORTHEAST
+        if (currentPosition.x < nextPosition.x && nextPosition.y > currentPosition.y) return WorkerAction.SOUTHEAST
+        if (currentPosition.x < nextPosition.x && nextPosition.y < currentPosition.y) return WorkerAction.NORTHEAST
         //failure
         return WorkerAction.TAKE
     }
 
-    private fun doMove(position: Position, vision: List<Position>) {
-        val ref = system.resolve(SERVER_NAME)
-        var possiblePositions = getPossiblePositions(position)
-        var nextPosition = possiblePositions.get(Random.nextInt(0, possiblePositions.size - 1))
-        var nextAction = getActionForPosition(position, nextPosition)
+    private fun getClosestMaterialSource(currentPosition: Position): Position {
+        var minDistance = 0
+        var positionOfMinDistance = currentPosition
+        for (materialPosition in materialPositions) {
+            val distance = calculateDistance(currentPosition, materialPosition)
+            if (distance < minDistance) {
+                minDistance = distance
+                positionOfMinDistance = materialPosition
+            }
+        }
+        return positionOfMinDistance
+    }
 
-        ref invoke ask<WorkerActionResponse>(WorkerActionRequest(collectID, nextAction)) {
-            if (!it.state) {
-                considerActionFlags(it, position, vision)
+    private fun getAdjacentPositions(position: Position): List<Position> {
+        val adjacentPositions = mutableListOf<Position>()
+        for (dx in -1..1) {
+            for (dy in -1..1) {
+                if (dx == 0 && dy == 0) continue  // Skip the current position
+                adjacentPositions.add(Position(position.x + dx, position.y + dy))
+            }
+        }
+        return adjacentPositions
+    }
+
+    private fun isPositionValid(position: Position, obstacles: List<Position>?): Boolean {
+        if (obstacles != null) {
+            return !obstacles.contains(position)
+        }
+        return true
+    }
+
+    private fun getNextPositionToGoal(currentPosition: Position, goal: Position): Position{
+        val openList = mutableListOf<RepairAgent.Node>()
+        val closedList = mutableSetOf<RepairAgent.Node>()
+
+        val startNode = RepairAgent.Node(currentPosition, 0, calculateDistance(currentPosition, goal))
+        openList.add(startNode)
+
+        while (openList.isNotEmpty()) {
+            val currentNode = openList.minBy { it.fCost }
+            openList.remove(currentNode)
+            currentNode?.let {
+                closedList.add(it)
+
+                val adjacentPositions = getAdjacentPositions(it.position)
+                for (adjacentPos in adjacentPositions) {
+                    if (!isPositionValid(adjacentPos, obstacles) || closedList.any { node -> node.position == adjacentPos }) {
+                        continue
+                    }
+
+                    val gCost = it.gCost + calculateDistance(it.position, adjacentPos)
+                    val hCost = calculateDistance(adjacentPos, goal)
+                    val newNode = RepairAgent.Node(adjacentPos, gCost, hCost, it)
+
+                    val existingNode = openList.find { node -> node.position == newNode.position }
+                    if (existingNode == null || existingNode.fCost > newNode.fCost) {
+                        existingNode?.let { node -> openList.remove(node) }
+                        openList.add(newNode)
+                    }
+                }
             }
         }
 
+        // Get the best next position based on fCost
+        val bestNode = closedList.minBy { it.fCost }
+        if (bestNode != null) {
+            return bestNode.position
+        }
+        // No path found
+        else {
+            var possiblePositions = getPossiblePositions(currentPosition)
+            return possiblePositions.get(Random.nextInt(0, possiblePositions.size - 1))
+        }
+    }
+
+    private fun doMove(currentPosition: Position, vision: List<Position>) {
+        val ref = system.resolve(SERVER_NAME)
+        var possiblePositions = getPossiblePositions(currentPosition)
+        val nextPosition: Position
+
+        // if anny materials in vision go there else go 1 step closer to the closest material source
+        if (vision.isNotEmpty()) {
+            nextPosition = vision.get(Random.nextInt(0, vision.size - 1))
+        }
+        else if (materialPositions.isNotEmpty()) {
+            nextPosition = getNextPositionToGoal(currentPosition, getClosestMaterialSource(currentPosition))
+        }
+        else {
+            nextPosition = possiblePositions.get(Random.nextInt(0, possiblePositions.size - 1))
+        }
+
+        var nextAction = getActionForPosition(currentPosition, nextPosition)
+
+        ref invoke ask<WorkerActionResponse>(WorkerActionRequest(collectID, nextAction)) {
+            if (!it.state) {
+                considerActionFlags(it, currentPosition, vision)
+            }
+        }
     }
 
     private fun considerActionFlags(message: WorkerActionResponse, position: Position, vision: List<Position>) {

@@ -54,6 +54,7 @@ class MaxValueAgent(private val id: String) : Agent(overrideName = id) {
             log.info(itemStats.size.toString())
             lookingFor()
             bid()
+
         }
 
         // save LookingFors

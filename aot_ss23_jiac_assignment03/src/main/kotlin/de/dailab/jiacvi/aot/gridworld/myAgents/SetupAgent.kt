@@ -1,5 +1,6 @@
 package de.dailab.jiacvi.aot.gridworld.myAgents
 
+import com.google.protobuf.Empty
 import de.dailab.jiacvi.Agent
 import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
@@ -46,8 +47,12 @@ data class AcceptRejectCNP(val accepted: Boolean)
 data class InformCancelCNP(val accepted: Boolean)
 data class RepairPointsUpdate(val RepairPoints: MutableList<Position>)
 
+/** CollectAgent -> CollectAgent (tell), Position of material if empty remove from list*/
+data class MaterialPositions(val position: Position, val materialThere: Boolean)
+
 const val CNP_TOPIC = "cnp"
 const val Repair_Points = "repairPoints"
+const val MATERIAL_TOPIC = "materialPositions"
 
 fun calculateDistance(start: Position, end: Position): Int {
     val dx = kotlin.math.abs(start.x - end.x)

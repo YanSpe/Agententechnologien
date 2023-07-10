@@ -54,6 +54,9 @@ class LookingForAgent02(private val id: String) : Agent(overrideName = id) {
             log.info(itemStats.size.toString())
             lookingFor()
             bid()
+            for (itemPrices in lookingFors) {
+                itemPrices.clear()
+            }
         }
 
         // save LookingFors
