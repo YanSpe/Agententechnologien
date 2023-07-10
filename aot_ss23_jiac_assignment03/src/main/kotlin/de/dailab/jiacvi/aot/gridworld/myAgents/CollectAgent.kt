@@ -223,10 +223,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         val nextPosition: Position
 
         // if anny materials in vision go there else go 1 step closer to the closest material source
-        if (vision.isNotEmpty()) {
-            nextPosition = vision.get(Random.nextInt(0, vision.size - 1))
-        }
-        else if (materialPositions.isNotEmpty()) {
+        if (materialPositions.isNotEmpty()) {
             nextPosition = getNextPositionToGoal(currentPosition, getClosestMaterialSource(currentPosition))
         }
         else {
@@ -269,8 +266,15 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     private fun meetAndFindRepairAgent() {
         if (meetingPosition == null) {
             doCNP()
-        } else if (meetingPosition != myPosition) {
+        } else if (meetingPosition != myPosition && meetingPosition != null) {
             // move to position
+            val nextPosition = getNextPositionToGoal(myPosition, meetingPosition!!)
+            val nextAction = getActionForPosition(myPosition, nextPosition)
+            system.resolve(SERVER_NAME) invoke ask<WorkerActionResponse>(WorkerActionRequest(collectID,nextAction)) {
+                if (!it.state) {
+                    log.info(collectID + ": error in Moving to Meeting-Position")
+                }
+            }
         } else {
             // transfer material
             if (repairAgentId != null){
