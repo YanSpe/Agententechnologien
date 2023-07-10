@@ -179,6 +179,13 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             // move to position
         } else {
             // transfer material
+            if (repairAgentId != null) {
+                system.resolve(SERVER_NAME) tell TransferMaterial(collectID, repairAgentId!!)
+                hasMaterial = false
+            } else {
+                log.info(collectID + ": repairAgentId is null. Tried Transfering Material")
+            }
+
         }
     }
 
