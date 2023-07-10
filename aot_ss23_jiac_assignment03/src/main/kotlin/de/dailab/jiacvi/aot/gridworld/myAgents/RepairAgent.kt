@@ -19,27 +19,30 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     val repairID = repairID
     var CNPactive: Boolean = false
     lateinit var CNPmeetingPoint: Position
+    lateinit var repairAgentPosition: Position
 
 
     override fun behaviour() = act {
         on<CurrentPosition> { message ->
+            repairAgentPosition = message.position
             doTurn(message.position, message.vision)
         }
 
         // CNPmessage needs to be implemented
-        respond<CNPrequest, CNPresponse> {message ->
-            
-            CNPmeetingPoint = message.meetingPoint
-            CNPactive = true
+        listen<CNPRequest>(CNP_TOPIC){ message ->
+            doCNP(message.collectAgentId, message.workerPosition)
         }
-        on<TransferMaterial> {message ->
+
+        on<TransferInform> {message ->
             hasMaterial = true
             CNPactive = false
         }
     }
+
     private fun doTurn(position: Position, vision: List<Position>) {
         log.info(repairID + vision)
         val ref = system.resolve(SERVER_NAME)
+        // Repair
         if (standsOnRepairPoint && hasMaterial) {
             log.info(repairID + " takes material")
             ref invoke ask<WorkerActionResponse>(WorkerActionRequest(repairID, WorkerAction.DROP)) {
@@ -50,10 +53,58 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
                     considerActionFlags(it, position, vision)
                 }
             }
-        } else {
+        }
+        // Wait for Material transfer
+        else if (!hasMaterial && CNPactive && repairAgentPosition == CNPmeetingPoint){
+            log.info(repairID + " waits for material transfer")
+            //ref invoke ask<WorkerActionResponse>(WorkerActionRequest(repairID, WorkerAction.TAKE)) {
+            //    if (it.state) {
+            //        hasMaterial = true
+            //        log.info(repairID + "has succesfully taken material from CNP")
+            //    } else {
+            //        considerActionFlags(it, position, vision)
+            //    }
+            //}
+        }
+        else {
+            // Move to Position depending on if CNP is active or not
             doMove(position, vision)
         }
     }
+
+    private fun doCNP(collectAgentId: String, collectAgentPosition: Position){
+        val meetingPosition: Position = findMeetingPoint(collectAgentPosition)
+
+        system.resolve(collectAgentId) invoke ask<AcceptRejectCNP>(CNPResponse(repairID, meetingPosition)){
+            message ->
+            if (message.accepted){
+                CNPactive = true
+                CNPmeetingPoint = meetingPosition
+            }
+        }
+    }
+
+    private fun findMeetingPoint(collectAgentPosition: Position): Position{
+        var meetingPosition: Position? = null
+        var counter: Int = 0
+
+        while (meetingPosition == null){
+            if (counter == 0){
+                meetingPosition = Position((collectAgentPosition.x+repairAgentPosition.x)/2, (collectAgentPosition.y+repairAgentPosition.y)/2)
+                counter = 1
+            } else  {
+                meetingPosition = getAdjacentPositions(Position((collectAgentPosition.x+repairAgentPosition.x)/2, (collectAgentPosition.y+repairAgentPosition.y)/2)).random()
+            }
+
+           if (!isPositionValid(meetingPosition, obstacles)) {
+               meetingPosition = null
+           }
+        }
+
+        return meetingPosition
+    }
+
+
     private fun doMove(position: Position, vision: List<Position>) {
         val ref = system.resolve(SERVER_NAME)
         var nextPosition: Position? = null
@@ -72,7 +123,6 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
                 }
             }
         }
-
     }
 
     private fun getNearestRepairPoint(position: Position): Position {
