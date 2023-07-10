@@ -1,6 +1,7 @@
 package de.dailab.jiacvi.aot.gridworld.myAgents
 
 import de.dailab.jiacvi.Agent
+import de.dailab.jiacvi.BrokerAgentRef
 import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
 
@@ -14,23 +15,30 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     var hasMaterial: Boolean = false
     var standsOnRepairPoint: Boolean = false
     val obstacles = obstacles
-    val repairPoints: List<Position> = repairPoints
+    var repairPoints: MutableList<Position> = repairPoints.toMutableList()
     val size = size
     val repairID = repairID
     var CNPactive: Boolean = false
     lateinit var CNPmeetingPoint: Position
     lateinit var repairAgentPosition: Position
+    private val msgBroker by resolve<BrokerAgentRef>()
 
 
     override fun behaviour() = act {
         on<CurrentPosition> { message ->
             repairAgentPosition = message.position
+            standsOnRepairPoint = repairPoints.contains(repairAgentPosition)
             doTurn(message.position, message.vision)
         }
 
         // CNPmessage needs to be implemented
         listen<CNPRequest>(CNP_TOPIC){ message ->
             doCNP(message.collectAgentId, message.workerPosition)
+        }
+
+        listen<RepairPointsUpdate>(Repair_Points){ message ->
+            repairPoints = message.RepairPoints
+            standsOnRepairPoint = repairPoints.contains(repairAgentPosition)
         }
 
         on<TransferInform> {message ->
@@ -47,8 +55,12 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             log.info(repairID + " takes material")
             ref invoke ask<WorkerActionResponse>(WorkerActionRequest(repairID, WorkerAction.DROP)) {
                 if (it.state) {
-                    hasMaterial = false
+                    // update variables after successful repair
                     log.info(repairID + " has repaired a hole")
+                    hasMaterial = false
+                    standsOnRepairPoint = false
+                    repairPoints.remove(repairAgentPosition)
+                    msgBroker.publish(Repair_Points, RepairPointsUpdate(repairPoints))
                 } else {
                     considerActionFlags(it, position, vision)
                 }
@@ -65,6 +77,9 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             //        considerActionFlags(it, position, vision)
             //    }
             //}
+        }
+        else if (!hasMaterial && standsOnRepairPoint && !CNPactive){
+            log.info(repairID + " waits for CNP")
         }
         else {
             // Move to Position depending on if CNP is active or not
@@ -159,6 +174,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         return true
     }
     private fun getNextPosition(position: Position, goal: Position): Position?{
+        // A* Algorithmus
         val openList = mutableListOf<Node>()
         val closedList = mutableSetOf<Node>()
 
