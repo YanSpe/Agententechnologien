@@ -205,7 +205,6 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                         system.resolve(message.repairAgentId) tell AcceptRejectCNP(false)
                     }
                 }
-
             } else {
                 log.info(collectID + ": error no messages")
             }
