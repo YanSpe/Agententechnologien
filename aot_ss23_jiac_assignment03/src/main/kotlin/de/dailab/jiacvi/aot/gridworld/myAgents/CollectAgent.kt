@@ -273,6 +273,11 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             // move to position
         } else {
             // transfer material
+            if (repairAgentId != null){
+                system.resolve(SERVER_NAME) tell TransferMaterial(collectID, repairAgentId!!)
+            } else {
+                log.info(collectID + ": tried to transfer Material, no repairAgentId")
+            }
         }
     }
 
