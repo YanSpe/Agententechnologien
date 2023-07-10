@@ -96,6 +96,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
                 CNPactive = true
                 CNPmeetingPoint = meetingPosition
             }
+            system.resolve(collectAgentId) tell InformCancelCNP(true)
         }
     }
 
