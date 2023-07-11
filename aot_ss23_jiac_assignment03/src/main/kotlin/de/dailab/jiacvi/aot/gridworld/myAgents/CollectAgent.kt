@@ -26,6 +26,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     var repairAgentId: String? = null
     var cnpResponses: ArrayList<CNPResponse> = ArrayList()
     var materialPositions: ArrayList<Position> = ArrayList()
+    var partnerAgentIsOnMeetingPoint: Boolean = false
 
     override fun behaviour() = act {
         on<CurrentPosition> { message ->
@@ -44,6 +45,10 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             else {
                 materialPositions.remove(message.position)
             }
+        }
+
+        on<RepairAgentArrivedOnCNPMeetingPosition> { message ->
+            partnerAgentIsOnMeetingPoint = true
         }
     }
 
@@ -66,7 +71,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             }
         } else if (hasMaterial) {
             meetAndFindRepairAgent()
-            log.info(collectID + " should do CNP now")
+
         } else {
             doMove(position, vision)
         }
@@ -258,7 +263,8 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             ActionFlag.NO_ACTIVE_GAME -> log.info(collectID + ": No Active Game")
             ActionFlag.OBSTACLE -> doMove(position, vision)
             ActionFlag.NONE -> log.info(collectID + ": None")
-            ActionFlag.NO_MATERIAL -> doMaterialMove(position, vision)
+            ActionFlag.NO_MATERIAL -> {standsOnMaterial = false; log.info(collectID + ": No Material")}
+            else -> {log.info("ActionFlag Error")}
         }
     }
 
@@ -278,6 +284,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     private fun meetAndFindRepairAgent() {
         // there is no meeting position
         if (meetingPosition == null) {
+            log.info(collectID + " should do CNP now")
             doCNP()
         }
         // collector agent is not at the meeting position
@@ -293,10 +300,17 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         }
         // collector agent is at the meeting position
         else {
+            log.info(collectID + ": is on MeetingPosition")
             // transfer material
             if (repairAgentId != null){
-                system.resolve(SERVER_NAME) tell TransferMaterial(collectID, repairAgentId!!)
-                hasMaterial = false
+                if (partnerAgentIsOnMeetingPoint) {
+                    system.resolve(SERVER_NAME) tell TransferMaterial(collectID, repairAgentId!!)
+                    hasMaterial = false
+                    repairAgentId = null
+                    partnerAgentIsOnMeetingPoint = false
+                } else {
+                    log.info(collectID + ": waiting to send TRansfer")
+                }
             } else {
                 log.info(collectID + ": tried to transfer Material, no repairAgentId")
             }
@@ -316,6 +330,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                         system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true)) {
                             if (it.accepted) {
                                 meetingPosition = bestMessage.meetingPosition
+                                repairAgentId = bestMessage.repairAgentId
                                 //TODO: move to position
                             } else {
                                 //TODO: vielleicht bessere Fehlerbehandlung möglich

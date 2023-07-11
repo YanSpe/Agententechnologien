@@ -88,11 +88,11 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         }
         // Wait for Material transfer
         else if (!hasMaterial && CNP_active && repairAgentPosition == CNP_meetingPosition){
-            log.info(repairID + " waits for material transfer")
+            system.resolve(CNP_collectAgentId) tell (RepairAgentArrivedOnCNPMeetingPosition(repairID, true))
+            log.info(repairID + " waits for material transfer and has send Message")
         }
         // Wait for CNP
         else if (!hasMaterial && standsOnRepairPoint && !CNP_active){
-            system.resolve(CNP_collectAgentId) tell (RepairAgentArrivedOnCNPMeetingPosition(repairID, true))
             log.info(repairID + " waits for CNP")
         }
         else {
@@ -164,7 +164,10 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
 
     // Returns nearest repair point
     private fun getNearestRepairPoint(position: Position): Position {
-        return repairPoints.sortedBy { calculateDistance(position, it) }.first()
+        if (!repairPoints.isEmpty()) {
+            return repairPoints.sortedBy { calculateDistance(position, it) }.first()
+        }
+        return Position(0, 0)
     }
 
     // Adjacent Positions to given position
