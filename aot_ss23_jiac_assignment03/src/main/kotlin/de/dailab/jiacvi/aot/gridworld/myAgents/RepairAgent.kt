@@ -18,53 +18,60 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     var repairPoints: MutableList<Position> = repairPoints.toMutableList()
     val size = size
     val repairID = repairID
-    var CNPactive: Boolean = false
     lateinit var repairAgentPosition: Position
     private val msgBroker by resolve<BrokerAgentRef>()
-    lateinit var CNPmeetingPosition: Position
-    lateinit var CNPcollectAgentId: String
+    var CNP_active: Boolean = false
+    lateinit var CNP_meetingPosition: Position
+    lateinit var CNP_collectAgentId: String
 
     override fun behaviour() = act {
+        // Get current Position from Server, start doTurn logic
         on<CurrentPosition> { message ->
             repairAgentPosition = message.position
             standsOnRepairPoint = repairPoints.contains(repairAgentPosition)
             doTurn(message.position, message.vision)
         }
 
+        // On message in CNP_TOPIC start CNP logic if CNP is not already active
         listen<CNPRequest>(CNP_TOPIC){ message ->
             log.info(repairID + ": received CNP Request")
-            if(!CNPactive && !hasMaterial){
+            if(!CNP_active && !hasMaterial){
                 doCNP(message.collectAgentId, message.workerPosition)
             }
         }
 
+        // React to CNP Acceptance or Rejection from CollectAgent
         respond<AcceptRejectCNP, InformCancelCNP> { message ->
             log.info(repairID + ": got CNP-Response " + message)
             if (message.accepted){
-                CNPactive = true
+                CNP_active = true
                 return@respond InformCancelCNP(true)
             }
             return@respond InformCancelCNP(false)
         }
 
+        // React to successful transfer of material
         on<TransferInform> {message ->
             hasMaterial = true
-            CNPactive = false
+            CNP_active = false
+            CNP_collectAgentId = ""
         }
 
-        listen<RepairPointsUpdate>(Repair_Points){ message ->
+        // Update repair points if another repair agent publishes new information
+        listen<RepairPointsUpdate>(REPAIR_POINTS){ message ->
             repairPoints = message.RepairPoints
             standsOnRepairPoint = repairPoints.contains(repairAgentPosition)
             log.info(repairID + " received repair point update")
         }
     }
 
+    // Logic for the next turn (repair, move towards meeting point/repair point, wait for CNP partner)
     private fun doTurn(position: Position, vision: List<Position>) {
-        log.info(repairID + vision)
+        //log.info(repairID + vision)
         val ref = system.resolve(SERVER_NAME)
         // Repair
         if (standsOnRepairPoint && hasMaterial) {
-            log.info(repairID + " takes material")
+            log.info(repairID + " drops material")
             ref invoke ask<WorkerActionResponse>(WorkerActionRequest(repairID, WorkerAction.DROP)) {
                 if (it.state) {
                     // update variables after successful repair
@@ -72,25 +79,18 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
                     hasMaterial = false
                     standsOnRepairPoint = false
                     repairPoints.remove(repairAgentPosition)
-                    msgBroker.publish(Repair_Points, RepairPointsUpdate(repairPoints))
+                    msgBroker.publish(REPAIR_POINTS, RepairPointsUpdate(repairPoints))
                 } else {
                     considerActionFlags(it, position, vision)
                 }
             }
         }
         // Wait for Material transfer
-        else if (!hasMaterial && CNPactive && repairAgentPosition == CNPmeetingPosition){
+        else if (!hasMaterial && CNP_active && repairAgentPosition == CNP_meetingPosition){
             log.info(repairID + " waits for material transfer")
-            //ref invoke ask<WorkerActionResponse>(WorkerActionRequest(repairID, WorkerAction.TAKE)) {
-            //    if (it.state) {
-            //        hasMaterial = true
-            //        log.info(repairID + "has succesfully taken material from CNP")
-            //    } else {
-            //        considerActionFlags(it, position, vision)
-            //    }
-            //}
         }
-        else if (!hasMaterial && standsOnRepairPoint && !CNPactive){
+        // Wait for CNP
+        else if (!hasMaterial && standsOnRepairPoint && !CNP_active){
             log.info(repairID + " waits for CNP")
         }
         else {
@@ -100,15 +100,17 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         }
     }
 
+    // Finds meeting position and sends it to collect agent
     private fun doCNP(collectAgentId: String, collectAgentPosition: Position){
-        CNPmeetingPosition = findMeetingPoint(collectAgentPosition)
-        CNPcollectAgentId = collectAgentId
-        log.info(repairID+" found meeting point: "+CNPmeetingPosition)
+        CNP_meetingPosition = findMeetingPoint(collectAgentPosition)
+        CNP_collectAgentId = collectAgentId
+        log.info(repairID+" found meeting point: "+CNP_meetingPosition)
         val ref = system.resolve(collectAgentId)
         log.info(repairID+" tries to contact "+collectAgentId+" ("+ref+")")
-        ref tell (CNPResponse(repairID, CNPmeetingPosition))
+        ref tell (CNPResponse(repairID, CNP_meetingPosition))
     }
 
+    // looks for center between repair and collect agent that isnt an obstacle
     private fun findMeetingPoint(collectAgentPosition: Position): Position{
         var meetingPosition: Position? = null
         var counter: Int = 0
@@ -116,25 +118,29 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         while (meetingPosition == null){
             if (counter == 0){
                 meetingPosition = Position((collectAgentPosition.x+repairAgentPosition.x)/2, (collectAgentPosition.y+repairAgentPosition.y)/2)
-                counter = 1
+                counter++
             } else  {
                 meetingPosition = getAdjacentPositions(Position((collectAgentPosition.x+repairAgentPosition.x)/2, (collectAgentPosition.y+repairAgentPosition.y)/2)).random()
             }
-
            if (!isPositionValid(meetingPosition, obstacles)) {
                meetingPosition = null
+               counter++
            }
+            if (counter >= 9){
+                log.info("could not find meeting position, coming to collectAgentPosition")
+                return collectAgentPosition
+            }
         }
-
         return meetingPosition
     }
 
+    // Moves towards repair point or CNP Meeting point
     private fun doMove(position: Position, vision: List<Position>) {
         val ref = system.resolve(SERVER_NAME)
         var nextPosition: Position? = null
-        if(!hasMaterial && CNPactive) {
-            nextPosition = getNextPosition(position, CNPmeetingPosition)
-            log.info(repairID + " goes towards meeting point: "+ CNPmeetingPosition)
+        if(!hasMaterial && CNP_active) {
+            nextPosition = getNextPosition(position, CNP_meetingPosition)
+            log.info(repairID + " goes towards meeting point: "+ CNP_meetingPosition)
         } else {
             var nearestRepairPoint: Position = getNearestRepairPoint(position)
             log.info(repairID + " goes towards nearest repair point at position " + nearestRepairPoint)
@@ -154,22 +160,12 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         }
     }
 
+    // Returns nearest repair point
     private fun getNearestRepairPoint(position: Position): Position {
-        //var nearestRepairPoint: Position = Position(x=-1, y=-1)
-        //for (repairPoint in repairPoints){
-        //    if (nearestRepairPoint == Position(x=-1, y=-1)){
-        //        nearestRepairPoint = repairPoint
-        //    } else if (repairPoint.x-position.x+repairPoint.y-position.y < nearestRepairPoint.x-position.x+nearestRepairPoint.y-position.y){
-        //        nearestRepairPoint = repairPoint
-        //    }
-        //}
         return repairPoints.sortedBy { calculateDistance(position, it) }.first()
     }
-    class Node(val position: Position, var gCost: Int, var hCost: Int, var parent: Node? = null) {
-        val fCost: Int
-            get() = gCost + hCost
-    }
 
+    // Adjacent Positions to given position
     private fun getAdjacentPositions(position: Position): List<Position> {
         val adjacentPositions = mutableListOf<Position>()
         for (dx in -1..1) {
@@ -181,12 +177,15 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         return adjacentPositions
     }
 
+    // Return false if position is obstacle
     private fun isPositionValid(position: Position, obstacles: List<Position>?): Boolean {
         if (obstacles != null) {
             return !obstacles.contains(position)
         }
         return true
     }
+
+    // A* algorithm to find next position
     private fun getNextPosition(position: Position, goal: Position): Position?{
         log.info(repairID + " starts A* with position: "+ position+" goal: "+ goal+" obstacles: "+ obstacles)
         // A* Algorithmus
@@ -239,6 +238,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
 
         // No path found
         if (closedList.isEmpty()) {
+            log.info("Critical error, A* found no path")
             return null
         }
 
@@ -248,6 +248,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     }
 
 
+    // Convert Position into action
     private fun getActionForPosition(myPosition: Position, nextPosition: Position): WorkerAction {
         if (myPosition.x == nextPosition.x) {
             if (nextPosition.y > myPosition.y) return WorkerAction.SOUTH
@@ -266,6 +267,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         return WorkerAction.TAKE
     }
 
+    // React to action flags with logging
     private fun considerActionFlags(message: WorkerActionResponse, position: Position, vision: List<Position>) {
         when (message.flag) {
             ActionFlag.MAX_ACTIONS -> log.info(repairID + ": Max Action")
@@ -276,4 +278,10 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             ActionFlag.NO_MATERIAL -> log.info(repairID + ": No Material")
         }
     }
+}
+
+// Used for A* algorithm
+class Node(val position: Position, var gCost: Int, var hCost: Int, var parent: Node? = null) {
+    val fCost: Int
+        get() = gCost + hCost
 }

@@ -51,7 +51,7 @@ data class RepairPointsUpdate(val RepairPoints: MutableList<Position>)
 data class MaterialPositions(val position: Position, val materialThere: Boolean)
 
 const val CNP_TOPIC = "cnp"
-const val Repair_Points = "repairPoints"
+const val REPAIR_POINTS = "repairPoints"
 const val MATERIAL_TOPIC = "materialPositions"
 
 fun calculateDistance(start: Position, end: Position): Int {
