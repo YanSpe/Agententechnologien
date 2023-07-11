@@ -17,8 +17,8 @@ class SetupAgent (private val setupID: String): Agent(overrideName=setupID) {
      */
 
     override fun preStart() {
-        system.resolve(SERVER_NAME) invoke ask<SetupGameResponse>(SetupGameMessage(setupID, "/grids/example.grid")) { message ->
-        //system.resolve(SERVER_NAME) invoke ask<SetupGameResponse>(SetupGameMessage(setupID, "/grids/Fortress_grp11.grid")) { message ->
+        //system.resolve(SERVER_NAME) invoke ask<SetupGameResponse>(SetupGameMessage(setupID, "/grids/example.grid")) { message ->
+        system.resolve(SERVER_NAME) invoke ask<SetupGameResponse>(SetupGameMessage(setupID, "/grids/Fortress_grp11.grid")) { message ->
             for (collectorId in message.collectorIDs) {
                 system.spawnAgent(CollectAgent(collectorId, message.obstacles, message.repairPoints, message.size))
             }
@@ -44,7 +44,7 @@ class SetupAgent (private val setupID: String): Agent(overrideName=setupID) {
 
 data class CNPRequest(val collectAgentId: String, val workerPosition: Position)
 data class CNPResponse(val repairAgentId: String, val meetingPosition: Position)
-data class AcceptRejectCNP(val accepted: Boolean)
+data class AcceptRejectCNP(val accepted: Boolean, val meetingPosition: Position, val collectAgentId: String)
 data class InformCancelCNP(val accepted: Boolean)
 data class RepairPointsUpdate(val RepairPoints: MutableList<Position>)
 
