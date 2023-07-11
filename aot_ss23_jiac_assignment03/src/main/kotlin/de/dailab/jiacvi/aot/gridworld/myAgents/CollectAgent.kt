@@ -115,18 +115,16 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         if (currentPosition.y + 1 < size.y) positions.add(Position(currentPosition.x, currentPosition.y + 1))
         if (currentPosition.y - 1 >= 0) positions.add(Position(currentPosition.x, currentPosition.y - 1))
 
+        val returnPositions = ArrayList<Position>()
         for (position in positions) {
-            if (repairPoints.contains(position)) {
-                positions.remove(position)
+            if (repairPoints.contains(position) || (obstacles != null && obstacles.contains(position))) {
                 continue
-            }
-            if (obstacles != null && obstacles.contains(position)) {
-                positions.remove(position)
-                continue
+            } else {
+                returnPositions.add(position)
             }
         }
 
-        return positions
+        return returnPositions
     }
 
     private fun getActionForPosition(currentPosition: Position, nextPosition: Position): WorkerAction {
@@ -244,7 +242,11 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             nextPosition = getNextPositionToGoal(currentPosition, getClosestMaterialSource(currentPosition))
         }
         else {
-            nextPosition = possiblePositions.get(Random.nextInt(0, possiblePositions.size - 1))
+            var random = 0
+            if (possiblePositions.size > 0) {
+                random = Random.nextInt(0, possiblePositions.size - 1)
+            }
+            nextPosition = possiblePositions.get(random)
         }
 
         var nextAction = getActionForPosition(currentPosition, nextPosition)
