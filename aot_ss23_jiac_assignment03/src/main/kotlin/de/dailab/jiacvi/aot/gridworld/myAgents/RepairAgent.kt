@@ -55,6 +55,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             hasMaterial = true
             CNP_active = false
             CNP_collectAgentId = ""
+            log.info("Transfer successful")
         }
 
         // Update repair points if another repair agent publishes new information
@@ -95,7 +96,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         }
         else {
             // Move to Position depending on if CNP is active or not
-            log.info(repairID + " makes a move")
+            //log.info(repairID + " makes a move")
             doMove(position, vision)
         }
     }
@@ -106,7 +107,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         CNP_collectAgentId = collectAgentId
         log.info(repairID+" found meeting point: "+CNP_meetingPosition)
         val ref = system.resolve(collectAgentId)
-        log.info(repairID+" tries to contact "+collectAgentId+" ("+ref+")")
+        //log.info(repairID+" tries to contact "+collectAgentId+" ("+ref+")")
         ref tell (CNPResponse(repairID, CNP_meetingPosition))
     }
 
