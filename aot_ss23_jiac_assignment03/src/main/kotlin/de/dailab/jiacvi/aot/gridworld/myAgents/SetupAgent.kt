@@ -50,6 +50,8 @@ data class RepairPointsUpdate(val RepairPoints: MutableList<Position>)
 /** CollectAgent -> CollectAgent (tell), Position of material if empty remove from list*/
 data class MaterialPositions(val position: Position, val materialThere: Boolean)
 
+data class RepairAgentArrivedOnCNPMeetingPosition(val repairAgentId: String, val Arrived: Boolean)
+
 const val CNP_TOPIC = "cnp"
 const val REPAIR_POINTS = "repairPoints"
 const val MATERIAL_TOPIC = "materialPositions"

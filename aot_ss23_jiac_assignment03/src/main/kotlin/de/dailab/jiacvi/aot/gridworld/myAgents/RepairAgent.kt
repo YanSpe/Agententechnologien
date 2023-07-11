@@ -92,6 +92,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         }
         // Wait for CNP
         else if (!hasMaterial && standsOnRepairPoint && !CNP_active){
+            system.resolve(CNP_collectAgentId) tell (RepairAgentArrivedOnCNPMeetingPosition(repairID, true))
             log.info(repairID + " waits for CNP")
         }
         else {
