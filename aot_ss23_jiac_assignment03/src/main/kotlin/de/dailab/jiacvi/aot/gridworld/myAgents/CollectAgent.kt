@@ -242,8 +242,11 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         }
         else {
             var random = 0
-            if (possiblePositions.size > 0) {
+            if (possiblePositions.size > 1) {
+                log.info(collectID + ": PossiblePositions.Size=" + possiblePositions.size)
                 random = Random.nextInt(0, possiblePositions.size - 1)
+            } else {
+                log.info(collectID + "possiblePositions Size=" + possiblePositions.size)
             }
             nextPosition = possiblePositions.get(random)
         }
