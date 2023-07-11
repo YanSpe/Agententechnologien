@@ -278,10 +278,10 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             ActionFlag.NO_MATERIAL -> log.info(repairID + ": No Material")
         }
     }
-}
 
-// Used for A* algorithm
-class Node(val position: Position, var gCost: Int, var hCost: Int, var parent: Node? = null) {
-    val fCost: Int
-        get() = gCost + hCost
+    // Used for A* algorithm
+    class Node(val position: Position, var gCost: Int, var hCost: Int, var parent: Node? = null) {
+        val fCost: Int
+            get() = gCost + hCost
+    }
 }
