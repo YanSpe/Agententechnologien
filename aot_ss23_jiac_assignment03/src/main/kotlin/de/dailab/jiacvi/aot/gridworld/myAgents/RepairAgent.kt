@@ -187,7 +187,9 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             return myRepairPoint
         }
         if (!availableRepairPoints.isEmpty()) {
-            return availableRepairPoints.sortedBy { calculateDistance(position, it) }.first()
+            var range = (availableRepairPoints.size/5).toInt()
+            var selection = (availableRepairPoints.sortedBy { calculateDistance(position, it) }).slice(0..range)
+            return selection.random()
         }
         return position
     }
@@ -214,8 +216,11 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
 
     // A* algorithm to find next position
     private fun getNextPosition(position: Position, goal: Position): Position?{
-        log.info(repairID + " starts A* with position: "+ position+" goal: "+ goal+" obstacles: "+ obstacles)
+        //log.info(repairID + " starts A* with position: "+ position+" goal: "+ goal+" obstacles: "+ obstacles)
         // A* Algorithmus
+        if(position == goal){
+            return position
+        }
         val openList = mutableListOf<Node>()
         val closedList = mutableSetOf<Node>()
 
