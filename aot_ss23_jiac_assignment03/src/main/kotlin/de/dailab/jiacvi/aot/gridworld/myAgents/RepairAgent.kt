@@ -94,6 +94,8 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
                     standsOnRepairPoint = false
                     repairPoints.remove(repairAgentPosition)
                     msgBroker.publish(REPAIR_POINTS, RepairPointsUpdate(repairPoints))
+                    availableRepairPoints.remove(repairAgentPosition)
+                    msgBroker.publish(AVAILABLE_REPAIR_POINTS, RepairPointsUpdate(availableRepairPoints))
                     myRepairPoint = Position(-1,-1)
                 } else {
                     considerActionFlags(it, position, vision)
@@ -162,7 +164,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             if (nearestRepairPoint != myRepairPoint){
                 myRepairPoint = nearestRepairPoint
                 log.info("My repair point is: "+myRepairPoint)
-                availableRepairPoints.remove(repairAgentPosition)
+                availableRepairPoints.remove(myRepairPoint)
                 msgBroker.publish(AVAILABLE_REPAIR_POINTS, RepairPointsUpdate(availableRepairPoints))
             }
 

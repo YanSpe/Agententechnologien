@@ -37,8 +37,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         on<MaterialPositions> { message ->
             if (message.materialThere) {
                 materialPositions.add(message.position)
-            }
-            else {
+            } else {
                 materialPositions.remove(message.position)
             }
         }
@@ -60,7 +59,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                 if (it.state) {
                     hasMaterial = true
                     standsOnMaterial = false
-                    log.info(collectID + " has taken Material")
+                    //log.info(collectID + " has taken Material")
                 } else {
                     considerActionFlags(it, position, vision)
                 }
@@ -172,7 +171,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         return true
     }
 
-    private fun getNextPositionToGoal(currentPosition: Position, goal: Position): Position{
+    private fun getNextPositionToGoal(currentPosition: Position, goal: Position): Position {
         // A* Algorithmus
         val openList = mutableListOf<RepairAgent.Node>()
         val closedList = mutableSetOf<RepairAgent.Node>()
@@ -200,7 +199,11 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
 
             val adjacentPositions = getAdjacentPositions(currentNode.position)
             for (adjacentPos in adjacentPositions) {
-                if (!isPositionValid(adjacentPos, obstacles) || closedList.any { node -> node.position == adjacentPos }) {
+                if (!isPositionValid(
+                        adjacentPos,
+                        obstacles
+                    ) || closedList.any { node -> node.position == adjacentPos }
+                ) {
                     continue
                 }
 
@@ -236,14 +239,13 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         // if anny materials in vision go there else go 1 step closer to the closest material source
         if (materialPositions.isNotEmpty()) {
             nextPosition = getNextPositionToGoal(currentPosition, getClosestMaterialSource(currentPosition))
-        }
-        else {
+        } else {
             var random = 0
             if (possiblePositions.size > 1) {
-                log.info(collectID + ": PossiblePositions.Size=" + possiblePositions.size)
+                //log.info(collectID + ": PossiblePositions.Size=" + possiblePositions.size)
                 random = Random.nextInt(0, possiblePositions.size - 1)
             } else {
-                log.info(collectID + "possiblePositions Size=" + possiblePositions.size)
+                //log.info(collectID + "possiblePositions Size=" + possiblePositions.size)
             }
             nextPosition = possiblePositions.get(random)
         }
@@ -264,8 +266,13 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             ActionFlag.NO_ACTIVE_GAME -> log.info(collectID + ": No Active Game")
             ActionFlag.OBSTACLE -> doMove(position, vision)
             ActionFlag.NONE -> log.info(collectID + ": None")
-            ActionFlag.NO_MATERIAL -> {standsOnMaterial = false; log.info(collectID + ": No Material")}
-            else -> {log.info("ActionFlag Error")}
+            ActionFlag.NO_MATERIAL -> {
+                standsOnMaterial = false; log.info(collectID + ": No Material")
+            }
+
+            else -> {
+                log.info("ActionFlag Error")
+            }
         }
     }
 
@@ -275,7 +282,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         ref invoke ask<WorkerActionResponse>(WorkerActionRequest(this.collectID, nextAction)) {
             if (it.state) {
                 standsOnMaterial = true
-                log.info(collectID + " stands on Material")
+                // log.info(collectID + " stands on Material")
             } else {
                 considerActionFlags(it, position, vision)
             }
@@ -293,9 +300,9 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             // move to position
             val nextPosition = getNextPositionToGoal(myPosition, meetingPosition!!)
             val nextAction = getActionForPosition(myPosition, nextPosition)
-            system.resolve(SERVER_NAME) invoke ask<WorkerActionResponse>(WorkerActionRequest(collectID,nextAction)) {
+            system.resolve(SERVER_NAME) invoke ask<WorkerActionResponse>(WorkerActionRequest(collectID, nextAction)) {
                 if (!it.state) {
-                    log.info(collectID + ": error in Moving to Meeting-Position")
+                    //log.info(collectID + ": error in Moving to Meeting-Position")
                 }
             }
         }
@@ -303,7 +310,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         else {
             log.info(collectID + ": is on MeetingPosition")
             // transfer material
-            if (repairAgentId != null){
+            if (repairAgentId != null) {
                 if (partnerAgentIsOnMeetingPoint) {
                     system.resolve(SERVER_NAME) tell TransferMaterial(collectID, repairAgentId!!)
                     hasMaterial = false
@@ -313,7 +320,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                     log.info(collectID + ": waiting to send TRansfer")
                 }
             } else {
-                log.info(collectID + ": tried to transfer Material, no repairAgentId")
+                //log.info(collectID + ": tried to transfer Material, no repairAgentId")
             }
         }
     }
@@ -323,24 +330,13 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
 
         Timer().schedule(50) {
             log.info(collectID + ": Timer ended; is Working on Requests")
-            val bestMessage = getBestMeetingPoint()
-            if (bestMessage != null) {
-                for (message in cnpResponses) {
-                    if (message == bestMessage) {
-                        log.info(collectID + ": accepted " + message)
-                        system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true, message.meetingPosition, collectID)) {
-                            if (it.accepted) {
-                                meetingPosition = bestMessage.meetingPosition
-                                repairAgentId = bestMessage.repairAgentId
-                            } else {
-                                doCNP()
-                                log.info(collectID + ": repairAgent rejected")
-                            }
-                        }
-                    } else {
-                        //für alle anderen rejected Agenten
-                        system.resolve(message.repairAgentId) tell AcceptRejectCNP(false, message.meetingPosition, collectID)
-                    }
+            val orderedResponses = getOrderedCNPResponseList()
+            if (orderedResponses.isNotEmpty()) {
+                var finished:Boolean = false
+                for (message in orderedResponses) {
+                    if (finished) continue
+                    log.info(collectID + ": tried to accept " + message)
+                    finished = acceptRequest(message)
                 }
             } else {
                 log.info(collectID + ": error no messages")
@@ -348,22 +344,78 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         }
     }
 
-    private fun getBestMeetingPoint(): CNPResponse? {
-        var bestCNPResponse: CNPResponse? = null
-        var bestVal: Int = -1
-        for (response in cnpResponses) {
-            if (bestCNPResponse == null) {
-                bestCNPResponse = response
-                bestVal = calculateDistance(myPosition, response.meetingPosition)
-            } else {
-                val newVal = calculateDistance(myPosition, response.meetingPosition)
-                if (newVal < bestVal) {
-                    bestVal = newVal
-                    bestCNPResponse = response
-                }
+    private fun doCNP1() {
+        msgBroker.publish(CNP_TOPIC, CNPRequest(collectID, myPosition))
+
+        Timer().schedule(50) {
+            val message = getOrderedCNPResponseList().first()
+            if (!acceptRequest1(message)) {
+                doCNP1()
             }
         }
-        return bestCNPResponse
+    }
+
+    private fun acceptRequest1(message: CNPResponse): Boolean {
+        var finished = false
+        system.resolve(message.repairAgentId) invoke ask<InformCancelCNP>(
+            AcceptRejectCNP(
+                true,
+                message.meetingPosition,
+                collectID
+            )
+        ) {
+            for (noMessages in cnpResponses) {
+                if (noMessages == message) continue
+                system.resolve(message.repairAgentId) tell AcceptRejectCNP(
+                    false,
+                    message.meetingPosition,
+                    collectID
+                )
+            }
+            if (it.accepted) {
+                log.info(collectID + " was accepted from " + message.repairAgentId)
+                meetingPosition = message.meetingPosition
+
+                repairAgentId = message.repairAgentId
+                finished = true
+            } else {
+                log.info(collectID + " was rejected from " + message.repairAgentId)
+            }
+        }
+        return finished
+    }
+
+    private fun acceptRequest(message: CNPResponse): Boolean {
+        var finished = false
+        system.resolve(message.repairAgentId) invoke ask<InformCancelCNP>(
+            AcceptRejectCNP(
+                true,
+                message.meetingPosition,
+                collectID
+            )
+        ) {
+            if (it.accepted) {
+                log.info(collectID + " was accepted from " + message.repairAgentId)
+                meetingPosition = message.meetingPosition
+                for (noMessages in cnpResponses) {
+                    if (noMessages == message) continue
+                    system.resolve(message.repairAgentId) tell AcceptRejectCNP(
+                        false,
+                        message.meetingPosition,
+                        collectID
+                    )
+                }
+                repairAgentId = message.repairAgentId
+                finished = true
+            } else {
+                log.info(collectID + " was rejected from " + message.repairAgentId)
+            }
+        }
+        return finished
+    }
+
+    private fun getOrderedCNPResponseList(): List<CNPResponse> {
+        return cnpResponses.sortedBy { calculateDistance(it.meetingPosition, myPosition) }
     }
 
 }
