@@ -44,7 +44,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
 
         // React to CNP Acceptance or Rejection from CollectAgent
         respond<AcceptRejectCNP, InformCancelCNP> { message ->
-            log.info(repairID + ": got CNP-Response " + message)
+            //log.info(repairID + ": got CNP-Response " + message)
             if (message.accepted && !CNP_active){
                 CNP_active = true
                 CNP_meetingPosition = message.meetingPosition
