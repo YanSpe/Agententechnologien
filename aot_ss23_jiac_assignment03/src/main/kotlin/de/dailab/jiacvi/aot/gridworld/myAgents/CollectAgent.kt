@@ -6,8 +6,6 @@ import de.dailab.jiacvi.aot.gridworld.*
 import de.dailab.jiacvi.behaviour.act
 import java.util.Timer
 import kotlin.concurrent.schedule
-import kotlin.math.pow
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: List<Position>, size: Position) :
@@ -176,6 +174,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     }
 
     private fun getNextPositionToGoal(currentPosition: Position, goal: Position): Position{
+        // A* Algorithmus
         val openList = mutableListOf<RepairAgent.Node>()
         val closedList = mutableSetOf<RepairAgent.Node>()
 
@@ -183,40 +182,51 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         openList.add(startNode)
 
         while (openList.isNotEmpty()) {
-            val currentNode = openList.minBy { it.fCost }
+            val currentNode = openList.minBy { it.fCost } ?: break
             openList.remove(currentNode)
-            currentNode?.let {
-                closedList.add(it)
+            closedList.add(currentNode)
 
-                val adjacentPositions = getAdjacentPositions(it.position)
-                for (adjacentPos in adjacentPositions) {
-                    if (!isPositionValid(adjacentPos, obstacles) || closedList.any { node -> node.position == adjacentPos }) {
-                        continue
-                    }
 
-                    val gCost = it.gCost + calculateDistance(it.position, adjacentPos)
-                    val hCost = calculateDistance(adjacentPos, goal)
-                    val newNode = RepairAgent.Node(adjacentPos, gCost, hCost, it)
+            if (currentNode.position == goal) {
+                // Reached the end position
+                val path = mutableListOf<Position>()
+                var node = currentNode
+                while (node.parent != null) {
+                    path.add(node.position)
+                    node = node.parent!!
+                }
+                path.reverse()
+                return path[0]
+            }
 
-                    val existingNode = openList.find { node -> node.position == newNode.position }
-                    if (existingNode == null || existingNode.fCost > newNode.fCost) {
-                        existingNode?.let { node -> openList.remove(node) }
-                        openList.add(newNode)
-                    }
+            val adjacentPositions = getAdjacentPositions(currentNode.position)
+            for (adjacentPos in adjacentPositions) {
+                if (!isPositionValid(adjacentPos, obstacles) || closedList.any { node -> node.position == adjacentPos }) {
+                    continue
+                }
+
+                val gCost = currentNode.gCost + calculateDistance(currentNode.position, adjacentPos)
+                val hCost = calculateDistance(adjacentPos, goal)
+                val newNode = RepairAgent.Node(adjacentPos, gCost, hCost, currentNode)
+
+                val existingNode = openList.find { node -> node.position == newNode.position }
+                if (existingNode == null || existingNode.fCost > newNode.fCost) {
+                    existingNode?.let { node -> openList.remove(node) }
+                    openList.add(newNode)
                 }
             }
         }
 
         // Get the best next position based on fCost
-        val bestNode = closedList.minBy { it.fCost }
-        if (bestNode != null) {
-            return bestNode.position
+        if (closedList.isNotEmpty()) {
+            val bestNode = closedList.minBy { it.fCost }
+            if (bestNode != null) {
+                return bestNode.position
+            }
         }
+
         // No path found
-        else {
-            var possiblePositions = getPossiblePositions(currentPosition)
-            return possiblePositions.get(Random.nextInt(0, possiblePositions.size - 1))
-        }
+        return currentPosition
     }
 
     private fun doMove(currentPosition: Position, vision: List<Position>) {
@@ -266,9 +276,12 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     }
 
     private fun meetAndFindRepairAgent() {
+        // there is no meeting position
         if (meetingPosition == null) {
             doCNP()
-        } else if (meetingPosition != myPosition && meetingPosition != null) {
+        }
+        // collector agent is not at the meeting position
+        else if (meetingPosition != myPosition) {
             // move to position
             val nextPosition = getNextPositionToGoal(myPosition, meetingPosition!!)
             val nextAction = getActionForPosition(myPosition, nextPosition)
@@ -277,7 +290,9 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                     log.info(collectID + ": error in Moving to Meeting-Position")
                 }
             }
-        } else {
+        }
+        // collector agent is at the meeting position
+        else {
             // transfer material
             if (repairAgentId != null){
                 system.resolve(SERVER_NAME) tell TransferMaterial(collectID, repairAgentId!!)
