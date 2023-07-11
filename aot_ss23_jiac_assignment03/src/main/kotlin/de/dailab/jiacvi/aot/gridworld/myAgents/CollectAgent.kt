@@ -19,7 +19,6 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     val obstacles = obstacles
     val repairPoints = repairPoints
     val size = size
-    var knownMaterial: ArrayList<Position> = ArrayList()
     var meetingPosition: Position? = null
     private val msgBroker by resolve<BrokerAgentRef>()
     var myPosition: Position = Position(0, 0)
@@ -234,7 +233,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
 
     private fun doMove(currentPosition: Position, vision: List<Position>) {
         val ref = system.resolve(SERVER_NAME)
-        var possiblePositions = getPossiblePositions(currentPosition)
+        val possiblePositions = getPossiblePositions(currentPosition)
         val nextPosition: Position
 
         // if anny materials in vision go there else go 1 step closer to the closest material source
@@ -249,7 +248,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             nextPosition = possiblePositions.get(random)
         }
 
-        var nextAction = getActionForPosition(currentPosition, nextPosition)
+        val nextAction = getActionForPosition(currentPosition, nextPosition)
 
         ref invoke ask<WorkerActionResponse>(WorkerActionRequest(collectID, nextAction)) {
             if (!it.state) {
@@ -333,9 +332,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                             if (it.accepted) {
                                 meetingPosition = bestMessage.meetingPosition
                                 repairAgentId = bestMessage.repairAgentId
-                                //TODO: move to position
                             } else {
-                                //TODO: vielleicht bessere Fehlerbehandlung möglich
                                 doCNP()
                                 log.info(collectID + ": repairAgent rejected")
                             }
