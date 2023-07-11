@@ -19,10 +19,10 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     val size = size
     val repairID = repairID
     var CNPactive: Boolean = false
-    lateinit var CNPmeetingPoint: Position
     lateinit var repairAgentPosition: Position
     private val msgBroker by resolve<BrokerAgentRef>()
-
+    lateinit var CNPmeetingPosition: Position
+    lateinit var CNPcollectAgentId: String
 
     override fun behaviour() = act {
         on<CurrentPosition> { message ->
@@ -31,21 +31,31 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             doTurn(message.position, message.vision)
         }
 
-        // CNPmessage needs to be implemented
         listen<CNPRequest>(CNP_TOPIC){ message ->
             log.info(repairID + ": received CNP Request")
-            doCNP(message.collectAgentId, message.workerPosition)
+            if(!CNPactive && !hasMaterial){
+                doCNP(message.collectAgentId, message.workerPosition)
+            }
+        }
+
+        respond<AcceptRejectCNP, InformCancelCNP> { message ->
+            log.info(repairID + ": got CNP-Response " + message)
+            if (message.accepted){
+                CNPactive = true
+                return@respond InformCancelCNP(true)
+            }
+            return@respond InformCancelCNP(false)
+        }
+
+        on<TransferInform> {message ->
+            hasMaterial = true
+            CNPactive = false
         }
 
         listen<RepairPointsUpdate>(Repair_Points){ message ->
             repairPoints = message.RepairPoints
             standsOnRepairPoint = repairPoints.contains(repairAgentPosition)
             log.info(repairID + " received repair point update")
-        }
-
-        on<TransferInform> {message ->
-            hasMaterial = true
-            CNPactive = false
         }
     }
 
@@ -69,7 +79,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             }
         }
         // Wait for Material transfer
-        else if (!hasMaterial && CNPactive && repairAgentPosition == CNPmeetingPoint){
+        else if (!hasMaterial && CNPactive && repairAgentPosition == CNPmeetingPosition){
             log.info(repairID + " waits for material transfer")
             //ref invoke ask<WorkerActionResponse>(WorkerActionRequest(repairID, WorkerAction.TAKE)) {
             //    if (it.state) {
@@ -91,17 +101,12 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     }
 
     private fun doCNP(collectAgentId: String, collectAgentPosition: Position){
-        val meetingPosition: Position = findMeetingPoint(collectAgentPosition)
-
-        system.resolve(collectAgentId) invoke ask<AcceptRejectCNP>(CNPResponse(repairID, meetingPosition)){
-            message ->
-            log.info(repairID + ": got CNP-Response " + message)
-            if (message.accepted){
-                CNPactive = true
-                CNPmeetingPoint = meetingPosition
-            }
-            system.resolve(collectAgentId) tell InformCancelCNP(true)
-        }
+        CNPmeetingPosition = findMeetingPoint(collectAgentPosition)
+        CNPcollectAgentId = collectAgentId
+        log.info(repairID+" found meeting point: "+CNPmeetingPosition)
+        val ref = system.resolve(collectAgentId)
+        log.info(repairID+" tries to contact "+collectAgentId+" ("+ref+")")
+        ref tell (CNPResponse(repairID, CNPmeetingPosition))
     }
 
     private fun findMeetingPoint(collectAgentPosition: Position): Position{
@@ -124,19 +129,18 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         return meetingPosition
     }
 
-
     private fun doMove(position: Position, vision: List<Position>) {
         val ref = system.resolve(SERVER_NAME)
         var nextPosition: Position? = null
         if(!hasMaterial && CNPactive) {
-            nextPosition = getNextPosition(position, CNPmeetingPoint)
-            log.info(repairID + " goes towards meeting point")
+            nextPosition = getNextPosition(position, CNPmeetingPosition)
+            log.info(repairID + " goes towards meeting point: "+ CNPmeetingPosition)
         } else {
             var nearestRepairPoint: Position = getNearestRepairPoint(position)
             log.info(repairID + " goes towards nearest repair point at position " + nearestRepairPoint)
 
             nextPosition = getNextPosition(position, nearestRepairPoint)
-            log.info(repairID + " goes next position: " + nextPosition)
+            log.info(repairID + " goes to next position: " + nextPosition)
         }
         if (nextPosition != null) {
             var nextAction = getActionForPosition(position, nextPosition)
@@ -184,6 +188,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         return true
     }
     private fun getNextPosition(position: Position, goal: Position): Position?{
+        log.info(repairID + " starts A* with position: "+ position+" goal: "+ goal+" obstacles: "+ obstacles)
         // A* Algorithmus
         val openList = mutableListOf<Node>()
         val closedList = mutableSetOf<Node>()
@@ -192,34 +197,45 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         openList.add(startNode)
 
         while (openList.isNotEmpty()) {
-            val currentNode = openList.minBy { it.fCost }
+            //log.info("openlist while iteration with length: "+ openList.size)
+            val currentNode = openList.minBy { it.fCost } ?: break
             openList.remove(currentNode)
-            currentNode?.let {
-                closedList.add(it)
+            //log.info("openlist length after removal: "+ openList.size)
+            closedList.add(currentNode)
 
-                if (it.position == goal) {
-                    // Reached the end position
-                    return null
+
+            if (currentNode.position == goal) {
+                // Reached the end position
+                //log.info("reached goal")
+                //return it.position
+                val path = mutableListOf<Position>()
+                var node = currentNode
+                while (node.parent != null) {
+                    path.add(node.position)
+                    node = node.parent!!
+                }
+                path.reverse()
+                return path[0]
+            }
+
+            val adjacentPositions = getAdjacentPositions(currentNode.position)
+            for (adjacentPos in adjacentPositions) {
+                if (!isPositionValid(adjacentPos, obstacles) || closedList.any { node -> node.position == adjacentPos }) {
+                    continue
                 }
 
-                val adjacentPositions = getAdjacentPositions(it.position)
-                for (adjacentPos in adjacentPositions) {
-                    if (!isPositionValid(adjacentPos, obstacles) || closedList.any { node -> node.position == adjacentPos }) {
-                        continue
-                    }
+                val gCost = currentNode.gCost + calculateDistance(currentNode.position, adjacentPos)
+                val hCost = calculateDistance(adjacentPos, goal)
+                val newNode = Node(adjacentPos, gCost, hCost, currentNode)
 
-                    val gCost = it.gCost + calculateDistance(it.position, adjacentPos)
-                    val hCost = calculateDistance(adjacentPos, goal)
-                    val newNode = Node(adjacentPos, gCost, hCost, it)
-
-                    val existingNode = openList.find { node -> node.position == newNode.position }
-                    if (existingNode == null || existingNode.fCost > newNode.fCost) {
-                        existingNode?.let { node -> openList.remove(node) }
-                        openList.add(newNode)
-                    }
+                val existingNode = openList.find { node -> node.position == newNode.position }
+                if (existingNode == null || existingNode.fCost > newNode.fCost) {
+                    existingNode?.let { node -> openList.remove(node) }
+                    openList.add(newNode)
                 }
             }
         }
+        log.info("while loop done")
 
         // No path found
         if (closedList.isEmpty()) {
