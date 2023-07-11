@@ -16,6 +16,8 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     var standsOnRepairPoint: Boolean = false
     val obstacles = obstacles
     var repairPoints: MutableList<Position> = repairPoints.toMutableList()
+    var availableRepairPoints: MutableList<Position> = repairPoints.toMutableList()
+    var myRepairPoint: Position = Position(-1,-1)
     val size = size
     val repairID = repairID
     lateinit var repairAgentPosition: Position
@@ -62,7 +64,16 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         listen<RepairPointsUpdate>(REPAIR_POINTS){ message ->
             repairPoints = message.RepairPoints
             standsOnRepairPoint = repairPoints.contains(repairAgentPosition)
+            if (!repairPoints.contains(myRepairPoint) && myRepairPoint != Position(-1,-1)){
+                myRepairPoint = Position(-1,-1)
+            }
             log.info(repairID + " received repair point update")
+        }
+
+        // Update available repair points if another repair agent publishes new information
+        listen<RepairPointsUpdate>(AVAILABLE_REPAIR_POINTS){ message ->
+            availableRepairPoints = message.RepairPoints
+            //log.info(repairID + " received available repair point update")
         }
     }
 
@@ -81,6 +92,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
                     standsOnRepairPoint = false
                     repairPoints.remove(repairAgentPosition)
                     msgBroker.publish(REPAIR_POINTS, RepairPointsUpdate(repairPoints))
+                    myRepairPoint = Position(-1,-1)
                 } else {
                     considerActionFlags(it, position, vision)
                 }
@@ -145,6 +157,13 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             log.info(repairID + " goes towards meeting point: "+ CNP_meetingPosition)
         } else {
             var nearestRepairPoint: Position = getNearestRepairPoint(position)
+            if (nearestRepairPoint != myRepairPoint){
+                myRepairPoint = nearestRepairPoint
+                log.info("My repair point is: "+myRepairPoint)
+                availableRepairPoints.remove(repairAgentPosition)
+                msgBroker.publish(AVAILABLE_REPAIR_POINTS, RepairPointsUpdate(availableRepairPoints))
+            }
+
             log.info(repairID + " goes towards nearest repair point at position " + nearestRepairPoint)
 
             nextPosition = getNextPosition(position, nearestRepairPoint)
@@ -164,10 +183,13 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
 
     // Returns nearest repair point
     private fun getNearestRepairPoint(position: Position): Position {
-        if (!repairPoints.isEmpty()) {
-            return repairPoints.sortedBy { calculateDistance(position, it) }.first()
+        if (myRepairPoint != Position(-1,-1)){
+            return myRepairPoint
         }
-        return Position(0, 0)
+        if (!availableRepairPoints.isEmpty()) {
+            return availableRepairPoints.sortedBy { calculateDistance(position, it) }.first()
+        }
+        return position
     }
 
     // Adjacent Positions to given position

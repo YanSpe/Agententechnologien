@@ -54,6 +54,7 @@ data class RepairAgentArrivedOnCNPMeetingPosition(val repairAgentId: String, val
 
 const val CNP_TOPIC = "cnp"
 const val REPAIR_POINTS = "repairPoints"
+const val AVAILABLE_REPAIR_POINTS = "availableRepairPoints"
 const val MATERIAL_TOPIC = "materialPositions"
 
 fun calculateDistance(start: Position, end: Position): Int {
