@@ -10,9 +10,6 @@ import kotlin.random.Random
 
 class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: List<Position>, size: Position) :
     Agent(overrideName = collectID) {
-    /* TODO
-        - wenn kein Material vorhanden ist, dann bleibt der Agent auf der Position stehen und sucht nicht weiter
-     */
     var hasMaterial: Boolean = false
     var standsOnMaterial: Boolean = false
     val collectID = collectID
@@ -331,7 +328,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                 for (message in cnpResponses) {
                     if (message == bestMessage) {
                         log.info(collectID + ": accepted " + message)
-                        system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true)) {
+                        system.resolve(bestMessage.repairAgentId) invoke ask<InformCancelCNP>(AcceptRejectCNP(true, message.meetingPosition, collectID)) {
                             if (it.accepted) {
                                 meetingPosition = bestMessage.meetingPosition
                                 repairAgentId = bestMessage.repairAgentId
@@ -342,7 +339,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                         }
                     } else {
                         //für alle anderen rejected Agenten
-                        system.resolve(message.repairAgentId) tell AcceptRejectCNP(false)
+                        system.resolve(message.repairAgentId) tell AcceptRejectCNP(false, message.meetingPosition, collectID)
                     }
                 }
             } else {

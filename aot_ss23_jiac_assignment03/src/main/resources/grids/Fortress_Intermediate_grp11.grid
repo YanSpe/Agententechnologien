@@ -1,0 +1,91 @@
+20 20 100 5 5 17 22
+....................
+....XX........XX....
+....................
+...#####....#####...
+.X.#.OO......OO.#.X.
+...#.O........O.#...
+.X.#.O........O.#.X.
+...#.....O......#...
+....................
+.....O...S...O......
+....................
+...#.....O......#...
+.X.#.O........O.#.X.
+...#.O........O.#...
+...#.O........O.#...
+.X.#.OO......OO.#.X.
+...#####....#####...
+....................
+....XX........XX....
+....................
+
+c01 9 9
+c02 9 9
+c03 9 9
+c04 9 9
+c05 9 9
+r01 9 9
+r02 9 9
+r03 9 9
+r04 9 9
+r05 9 9
+x01 4 1 2
+x02 5 1 2
+x03 14 1 2
+x04 15 1 2
+x05 1 4 2
+x06 18 4 2
+x07 1 6 2
+x08 18 6 2
+x09 1 12 2
+x10 18 12 2
+x11 1 15 2
+x12 18 15 2
+x13 4 18 2
+x14 5 18 2
+x15 14 18 2
+x16 15 18 2
+x17 9 10 50
+o01 5 4
+o02 6 4
+o03 13 4
+o04 14 4
+o05 5 5
+o06 14 5
+o07 5 6
+o08 14 6
+o09 9 7
+o10 5 9
+o11 13 9
+o12 9 11
+o13 5 12
+o14 14 12
+o15 5 13
+o16 14 13
+o17 5 14
+o18 14 14
+o19 5 15
+o20 6 15
+o21 13 15
+o22 14 15
+
+S = Spawn von allen Agenten
+X = Materiallager
+O = Repair Point
+# = Hindernis
+
+Unsere Map "Fortress" beinhaltet 22 Repair points und 16 Materiallager mit je 2 Material.
+
+Erwartungen an Ergebnis/Verhalten:
+- Wir erwarten dass der optimale Übergabepunkt in der Nähe der Ein-/Ausgänge liegt.
+D.h. die Collect Agenten bleiben außerhalb der Hindernisse und die Repair Agenten innerhalb.
+- Außerdem werden die Collect Agenten Schwierigkeiten haben die letzten Materiallager zu finden.
+
+- Falls sich die Map als zu einfach herausstellt kann man die Ein-/Ausgänge schmaler machen.
+- Falls sich die Map als zu schwierig herausstellt würden wir empfehlen mehr Agenten hinzuzufügen oder die Anzahl der Turns erhöhen.
+
+Was wird getestet:
+- Soll vor allem Fähigkeit mit Hindernissen umzugehen testen
+- Zusätzlich sind die letzten Materiallager weit entfernt (mindestens 3 von den 8 müssen gefunden werden)
+- Zuletzt ist die Map relativ groß, vor allem für nur 5 Agenten pro Art
