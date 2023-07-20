@@ -11,7 +11,7 @@ fun main() {
         enable(LocalBroker)
         agents {
             // you can set logGames=true, logFile="logs/<name>.log" here
-            add(ServerAgent())
+            add(ServerAgent(logGames = true))
 
             // this is your Agent but don't change the ID
             add(SetupAgent("setup"))

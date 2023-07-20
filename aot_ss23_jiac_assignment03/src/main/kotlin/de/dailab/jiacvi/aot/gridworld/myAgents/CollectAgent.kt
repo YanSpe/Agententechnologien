@@ -20,9 +20,12 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     private val msgBroker by resolve<BrokerAgentRef>()
     var myPosition: Position = Position(0, 0)
     var repairAgentId: String? = null
-    var cnpResponses: ArrayList<CNPResponse> = ArrayList()
+    var cnpBids: ArrayList<CNPBid> = ArrayList()
     var materialPositions: ArrayList<Position> = ArrayList()
     var partnerAgentIsOnMeetingPoint: Boolean = false
+    var definitiveBid: DefinitiveBid? = null
+    var startedCNP: Boolean = false
+    var last_turn_no_message = 0
 
     override fun behaviour() = act {
         on<CurrentPosition> { message ->
@@ -30,8 +33,24 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             doTurn(message.position, message.vision)
         }
 
-        on<CNPResponse> { message ->
-            cnpResponses.add(message)
+        on<CNPBid> { message ->
+            log.info(collectID + ": got Bid " + message)
+            cnpBids.add(message)
+        }
+
+        on<DefinitiveBid> {
+            log.info(collectID + ": got Definitive Bid")
+            definitiveBid = it
+        }
+
+        on<RestartCNPMessage> {
+            definitiveBid = null
+            log.info(collectID + ": cnpBids-löscht-46")
+            cnpBids = ArrayList()
+            meetingPosition = null
+            repairAgentId = null
+            startedCNP = false
+            meetAndFindRepairAgent()
         }
 
         on<MaterialPositions> { message ->
@@ -43,6 +62,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         }
 
         on<RepairAgentArrivedOnCNPMeetingPosition> { message ->
+            log.info(collectID + ": got Meeting-Arrive-Message from " + message.repairAgentId)
             partnerAgentIsOnMeetingPoint = true
         }
     }
@@ -264,7 +284,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
             ActionFlag.MAX_ACTIONS -> log.info(collectID + ": Max Action")
             ActionFlag.HAS_MATERIAL -> log.info(collectID + ": Has Material")
             ActionFlag.NO_ACTIVE_GAME -> log.info(collectID + ": No Active Game")
-            ActionFlag.OBSTACLE -> doMove(position, vision)
+            ActionFlag.OBSTACLE -> {log.info(collectID + ": Obstacle")}
             ActionFlag.NONE -> log.info(collectID + ": None")
             ActionFlag.NO_MATERIAL -> {
                 standsOnMaterial = false; log.info(collectID + ": No Material")
@@ -292,7 +312,6 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
     private fun meetAndFindRepairAgent() {
         // there is no meeting position
         if (meetingPosition == null) {
-            log.info(collectID + " should do CNP now")
             doCNP()
         }
         // collector agent is not at the meeting position
@@ -316,106 +335,121 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
                     hasMaterial = false
                     repairAgentId = null
                     partnerAgentIsOnMeetingPoint = false
+                    meetingPosition = null
                 } else {
-                    log.info(collectID + ": waiting to send TRansfer")
+                    log.info(collectID + ": waiting to send Transfer" + ";myPosition: " + myPosition + "; meetinPoint: " + meetingPosition + "; partnerIsOnMeetingPoint: " + partnerAgentIsOnMeetingPoint + "; partnerId: "+ repairAgentId)
                 }
             } else {
-                //log.info(collectID + ": tried to transfer Material, no repairAgentId")
+                log.info(collectID + ": is on MeetingPosition without repairAgentId")
             }
         }
     }
 
     private fun doCNP() {
-        msgBroker.publish(CNP_TOPIC, CNPRequest(collectID, myPosition))
-
-        Timer().schedule(50) {
-            log.info(collectID + ": Timer ended; is Working on Requests")
-            val orderedResponses = getOrderedCNPResponseList()
-            if (orderedResponses.isNotEmpty()) {
-                var finished:Boolean = false
-                for (message in orderedResponses) {
-                    if (finished) continue
-                    log.info(collectID + ": tried to accept " + message)
-                    finished = acceptRequest(message)
-                }
-            } else {
-                log.info(collectID + ": error no messages")
-            }
+        if (!startedCNP || (last_turn_no_message >= 3 && meetingPosition == null)) {
+            log.info(collectID + " should do CNP now")
+            msgBroker.publish(CNP_TOPIC, CNPRequest(collectID, myPosition))
+            startedCNP = true
+            last_turn_no_message = 0
         }
-    }
 
-    private fun doCNP1() {
-        msgBroker.publish(CNP_TOPIC, CNPRequest(collectID, myPosition))
-
-        Timer().schedule(50) {
-            val message = getOrderedCNPResponseList().first()
-            if (!acceptRequest1(message)) {
-                doCNP1()
-            }
-        }
-    }
-
-    private fun acceptRequest1(message: CNPResponse): Boolean {
-        var finished = false
-        system.resolve(message.repairAgentId) invoke ask<InformCancelCNP>(
-            AcceptRejectCNP(
-                true,
-                message.meetingPosition,
-                collectID
-            )
-        ) {
-            for (noMessages in cnpResponses) {
-                if (noMessages == message) continue
-                system.resolve(message.repairAgentId) tell AcceptRejectCNP(
-                    false,
-                    message.meetingPosition,
-                    collectID
-                )
-            }
-            if (it.accepted) {
-                log.info(collectID + " was accepted from " + message.repairAgentId)
-                meetingPosition = message.meetingPosition
-
-                repairAgentId = message.repairAgentId
-                finished = true
-            } else {
-                log.info(collectID + " was rejected from " + message.repairAgentId)
-            }
-        }
-        return finished
-    }
-
-    private fun acceptRequest(message: CNPResponse): Boolean {
-        var finished = false
-        system.resolve(message.repairAgentId) invoke ask<InformCancelCNP>(
-            AcceptRejectCNP(
-                true,
-                message.meetingPosition,
-                collectID
-            )
-        ) {
-            if (it.accepted) {
-                log.info(collectID + " was accepted from " + message.repairAgentId)
-                meetingPosition = message.meetingPosition
-                for (noMessages in cnpResponses) {
-                    if (noMessages == message) continue
-                    system.resolve(message.repairAgentId) tell AcceptRejectCNP(
-                        false,
-                        message.meetingPosition,
+        var endWhileLoop = false
+        while (!endWhileLoop && meetingPosition == null) {
+            //log.info(collectID + "-MeetingPosition: " +meetingPosition)
+            //TODO: warten auf alle BIDS
+            if (definitiveBid != null) {
+                log.info(collectID + ": got Definitive Bid")
+                //log.info(collectID + ": Timer ended; is Working on State 5")
+                val orderedResponses = getOrderedCNPResponseList()
+                if (orderedResponses.isEmpty()) {
+                    system.resolve(definitiveBid!!.repairAgentId) tell DefinitiveAcceptRejectCNP(
+                        true,
+                        definitiveBid!!.meetingPosition,
                         collectID
                     )
+                    log.info(collectID + ": definitive accepted Bid from " + definitiveBid!!.repairAgentId + " and and was alone")
+                    meetingPosition = definitiveBid!!.meetingPosition
+                    repairAgentId = definitiveBid!!.repairAgentId
+                    startedCNP = false
+                    log.info(collectID + ": meetingPosition set to " + definitiveBid!!.meetingPosition)
+                } else {
+                    val meetingDistanceBid = calculateDistance(myPosition, orderedResponses.first().meetingPosition)
+                    val meetingDistanceDefinitiveBid =
+                        calculateDistance(myPosition, definitiveBid!!.meetingPosition)
+
+                    if (meetingDistanceBid < meetingDistanceDefinitiveBid) {
+                        // go to State 2 --> reject Definitive Bid and Accept best Bid
+                        system.resolve(definitiveBid!!.repairAgentId) tell AcceptReject(
+                            false,
+                            collectID,
+                            myPosition
+                        )
+                        for (message in orderedResponses) {
+                            if (message == orderedResponses.first()) {
+                                system.resolve(message.repairAgentId) tell AcceptReject(true, collectID, myPosition)
+                                log.info(collectID + ": send accept message to " + message.repairAgentId)
+                            } else {
+                                system.resolve(message.repairAgentId) tell AcceptReject(
+                                    false,
+                                    collectID,
+                                    myPosition
+                                )
+                                log.info(collectID + ": send reject message to " + message.repairAgentId)
+                            }
+                        }
+                    } else {
+                        // DefinitveAccept Defintive Bid
+                        system.resolve(definitiveBid!!.repairAgentId) tell DefinitiveAcceptRejectCNP(
+                            true,
+                            definitiveBid!!.meetingPosition,
+                            collectID
+                        )
+                        log.info(collectID + ": definitive accepted Bid from " + definitiveBid!!.repairAgentId + " and definitive rejected everyone else")
+                        meetingPosition = definitiveBid!!.meetingPosition
+                        repairAgentId = definitiveBid!!.repairAgentId
+                        startedCNP = false
+                        for (message in orderedResponses) {
+                            system.resolve(message.repairAgentId) tell DefinitiveAcceptRejectCNP(
+                                false,
+                                myPosition,
+                                collectID
+                            )
+                        }
+                    }
                 }
-                repairAgentId = message.repairAgentId
-                finished = true
+                //log.info(collectID + ": cnpBids-löscht-406")
+                cnpBids = ArrayList()
+                definitiveBid = null
             } else {
-                log.info(collectID + " was rejected from " + message.repairAgentId)
+                log.info(collectID + ": Definitive Bid is Null")
+                val orderedResponses = getOrderedCNPResponseList()
+                if (orderedResponses.isNotEmpty()) {
+                    for (message in orderedResponses) {
+                        if (message == orderedResponses.first()) {
+                            system.resolve(message.repairAgentId) tell AcceptReject(true, collectID, myPosition)
+                            log.info(collectID + ": send accept message to " + message.repairAgentId)
+                        } else {
+                            system.resolve(message.repairAgentId) tell AcceptReject(false, collectID, myPosition)
+                            log.info(collectID + ": send reject message to " + message.repairAgentId)
+                        }
+                    }
+                    //log.info(collectID + ": cnpBids-löscht-421")
+                    cnpBids = ArrayList()
+                } else {
+                    last_turn_no_message += 1
+                    //log.info(collectID + ": error no messages")
+                    endWhileLoop = true
+                }
             }
         }
-        return finished
     }
 
-    private fun getOrderedCNPResponseList(): List<CNPResponse> {
-        return cnpResponses.sortedBy { calculateDistance(it.meetingPosition, myPosition) }
+    private fun getOrderedCNPResponseList(): List<CNPBid> {
+        //log.info(collectID + ": cnpBids " + cnpBids)
+        if (cnpBids.isEmpty()) {
+            return emptyList()
+        }
+        return cnpBids.sortedBy { calculateDistance(it.meetingPosition, myPosition) }
     }
 
 }

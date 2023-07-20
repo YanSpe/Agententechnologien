@@ -23,6 +23,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     lateinit var repairAgentPosition: Position
     private val msgBroker by resolve<BrokerAgentRef>()
     var CNP_active: Boolean = false
+    var hasSendRepairAgentArrived: Boolean = false
     lateinit var CNP_meetingPosition: Position
     lateinit var CNP_collectAgentId: String
 
@@ -38,20 +39,33 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         listen<CNPRequest>(CNP_TOPIC){ message ->
             log.info(repairID + ": received CNP Request")
             if(!CNP_active && !hasMaterial){
-                doCNP(message.collectAgentId, message.workerPosition)
+                doCNP(message.collectAgentId, message.workerPosition, false)
             }
         }
 
+        on<AcceptReject> { message->
+            if (message.accepted) {
+                doCNP(message.collectAgentId, message.workerPosition, true)
+            } else if (!CNP_active) {
+                doCNP(message.collectAgentId, message.workerPosition, false)
+            } else {
+                system.resolve(message.collectAgentId) tell DefinitiveAcceptRejectCNP(false, repairAgentPosition, message.collectAgentId)
+            }
+
+        }
+
         // React to CNP Acceptance or Rejection from CollectAgent
-        respond<AcceptRejectCNP, InformCancelCNP> { message ->
-            //log.info(repairID + ": got CNP-Response " + message)
+        on<DefinitiveAcceptRejectCNP> { message ->
+            log.info(repairID + ": got DefinitiveMessage " + message)
             if (message.accepted && !CNP_active){
                 CNP_active = true
                 CNP_meetingPosition = message.meetingPosition
                 CNP_collectAgentId = message.collectAgentId
-                return@respond InformCancelCNP(true)
+            } else if (message.accepted && CNP_active) {
+                log.info(repairID + ": got DefinitiveAccept, while CNP=True")
+                system.resolve(message.collectAgentId) tell RestartCNPMessage(repairID)
             }
-            return@respond InformCancelCNP(false)
+
         }
 
         // React to successful transfer of material
@@ -59,6 +73,7 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
             hasMaterial = true
             CNP_active = false
             CNP_collectAgentId = ""
+            hasSendRepairAgentArrived = false
             log.info("Transfer successful")
         }
 
@@ -104,8 +119,12 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
         }
         // Wait for Material transfer
         else if (!hasMaterial && CNP_active && repairAgentPosition == CNP_meetingPosition){
-            system.resolve(CNP_collectAgentId) tell (RepairAgentArrivedOnCNPMeetingPosition(repairID, true))
-            log.info(repairID + " waits for material transfer and has send Message")
+            if (!hasSendRepairAgentArrived) {
+                system.resolve(CNP_collectAgentId) tell (RepairAgentArrivedOnCNPMeetingPosition(repairID, true))
+                log.info(repairID + " waits for material transfer and has send Message")
+                hasSendRepairAgentArrived = true
+            }
+
         }
         // Wait for CNP
         else if (!hasMaterial && standsOnRepairPoint && !CNP_active){
@@ -119,13 +138,21 @@ class RepairAgent(repairID: String, obstacles: List<Position>?, repairPoints: Li
     }
 
     // Finds meeting position and sends it to collect agent
-    private fun doCNP(collectAgentId: String, collectAgentPosition: Position){
+    private fun doCNP(collectAgentId: String, collectAgentPosition: Position, definitive: Boolean){
         CNP_meetingPosition = findMeetingPoint(collectAgentPosition)
-        CNP_collectAgentId = collectAgentId
+        //CNP_collectAgentId = collectAgentId
         log.info(repairID+" found meeting point: "+CNP_meetingPosition)
         val ref = system.resolve(collectAgentId)
         //log.info(repairID+" tries to contact "+collectAgentId+" ("+ref+")")
-        ref tell (CNPResponse(repairID, CNP_meetingPosition))
+        if (definitive) {
+            log.info(repairID+": tells definitive Bid to " + collectAgentId)
+            ref tell DefinitiveBid(repairID, CNP_meetingPosition)
+
+        } else {
+            log.info(repairID+": tells Bid to " + collectAgentId)
+            ref tell (CNPBid(repairID, CNP_meetingPosition))
+        }
+
     }
 
     // looks for center between repair and collect agent that isnt an obstacle

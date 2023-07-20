@@ -34,9 +34,11 @@ class SetupAgent (private val setupID: String): Agent(overrideName=setupID) {
 }
 
 data class CNPRequest(val collectAgentId: String, val workerPosition: Position)
-data class CNPResponse(val repairAgentId: String, val meetingPosition: Position)
-data class AcceptRejectCNP(val accepted: Boolean, val meetingPosition: Position, val collectAgentId: String)
-data class InformCancelCNP(val accepted: Boolean)
+data class CNPBid(val repairAgentId: String, val meetingPosition: Position)
+data class DefinitiveAcceptRejectCNP(val accepted: Boolean, val meetingPosition: Position, val collectAgentId: String)
+data class DefinitiveBid(val repairAgentId: String, val meetingPosition: Position)
+data class AcceptReject(val accepted: Boolean, val collectAgentId: String, val workerPosition: Position)
+data class RestartCNPMessage(val repairAgentId: String)
 data class RepairPointsUpdate(val RepairPoints: MutableList<Position>)
 
 /** CollectAgent -> CollectAgent (tell), Position of material if empty remove from list*/
