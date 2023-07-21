@@ -8,7 +8,7 @@ import kotlin.system.exitProcess
 class SetupAgent (private val setupID: String): Agent(overrideName=setupID) {
 
     override fun preStart() {
-        system.resolve(SERVER_NAME) invoke ask<SetupGameResponse>(SetupGameMessage(setupID, "/grids/ex1.grid")) { message ->
+        system.resolve(SERVER_NAME) invoke ask<SetupGameResponse>(SetupGameMessage(setupID, "/grids/gridfiles/grid16.grid")) { message ->
         //system.resolve(SERVER_NAME) invoke ask<SetupGameResponse>(SetupGameMessage(setupID, "/grids/Fortress_Intermediate_grp11.grid")) { message ->
             for (collectorId in message.collectorIDs) {
                 system.spawnAgent(CollectAgent(collectorId, message.obstacles, message.repairPoints, message.size))

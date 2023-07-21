@@ -71,6 +71,7 @@ class CollectAgent(collectID: String, obstacles: List<Position>?, repairPoints: 
         log.info(collectID + vision)
         val ref = system.resolve(SERVER_NAME)
         if (!hasMaterial && !vision.isEmpty() && !standsOnMaterial) {
+            log.info(collectID + ": does MaterialMove; vision: " + vision)
             doMaterialMove(position, vision)
         } else if (standsOnMaterial && !hasMaterial) {
             log.info(collectID + " takes material")
